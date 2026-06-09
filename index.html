@@ -233,6 +233,22 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
         <div class="form-group"><label>Cédula</label><input type="text" id="r-cedula" placeholder="123456789"/></div>
         <div class="form-group"><label>Teléfono</label><input type="tel" id="r-tel" placeholder="3001234567"/></div>
       </div>
+      <div class="form-group">
+        <label>Ubicación de despacho</label>
+        <select id="r-ubicacion" onchange="toggleUbicacionOtro()">
+          <option value="">-- Selecciona tu ubicación --</option>
+          <option value="CANTV">CANTV</option>
+          <option value="PDVSA">PDVSA</option>
+          <option value="TORRE SUR">TORRE SUR</option>
+          <option value="EMPRESARIAL">EMPRESARIAL</option>
+          <option value="EL RECREO">EL RECREO</option>
+          <option value="OTRO">OTRO</option>
+        </select>
+      </div>
+      <div class="form-group" id="r-ubicacion-otro-wrap" style="display:none">
+        <label>Especifica tu ubicación</label>
+        <input type="text" id="r-ubicacion-otro" placeholder="Escribe tu ubicación"/>
+      </div>
       <div class="form-group"><label>Usuario</label><input type="text" id="r-user" placeholder="Elige un usuario único"/></div>
       <div class="form-group"><label>Contraseña</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres"/></div>
       <button class="btn btn-primary btn-full" onclick="doRegister()">Crear cuenta</button>
@@ -448,6 +464,15 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
       <span class="cart-total-label">Total del pedido</span>
       <span class="cart-total-val" id="cart-total-val">$0</span>
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
+      <div style="font-size:13px;font-weight:600;color:var(--brown);margin-bottom:10px;">Datos de pago</div>
+      <div class="form-group"><label>Banco</label><input type="text" id="pedido-banco" placeholder="Ej: Banesco, Mercantil..."/></div>
+      <div class="form-group"><label>Teléfono de pago</label><input type="tel" id="pedido-tel-pago" placeholder="04141234567"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Fecha de pago</label><input type="date" id="pedido-fecha-pago"/></div>
+        <div class="form-group"><label>Hora de pago</label><input type="time" id="pedido-hora-pago"/></div>
+      </div>
+    </div>
     <button class="btn btn-green btn-full" onclick="confirmarPedido()">Confirmar pedido</button>
   </div>
 </div>
@@ -592,9 +617,13 @@ async function doRegister() {
   const apellido = document.getElementById('r-apellido').value.trim();
   const cedula = document.getElementById('r-cedula').value.trim();
   const tel = document.getElementById('r-tel').value.trim();
+  const ubicacion = document.getElementById('r-ubicacion').value;
+  const ubicacionOtro = document.getElementById('r-ubicacion-otro').value.trim();
   const username = document.getElementById('r-user').value.trim();
   const pass = document.getElementById('r-pass').value;
-  if (!nombre || !username || !pass) { showErr('Completá los campos obligatorios'); return; }
+  if (!nombre || !username || !pass) { showErr('Completa los campos obligatorios'); return; }
+  if (!ubicacion) { showErr('Selecciona tu ubicación de despacho'); return; }
+  if (ubicacion === 'OTRO' && !ubicacionOtro) { showErr('Especifica tu ubicación'); return; }
   if (pass.length < 6) { showErr('La contraseña debe tener al menos 6 caracteres'); return; }
   loading(true, 'Creando cuenta...');
   const { data: exists } = await sb.from('profiles').select('id').eq('username', username).single();
@@ -602,12 +631,18 @@ async function doRegister() {
   const sem = semanaActual();
   const { data, error } = await sb.from('profiles').insert({
     username, password_hash: pass, nombre, apellido, cedula, telefono: tel,
+    ubicacion, ubicacion_otro: ubicacionOtro,
     rol: 'cliente', deuda_anterior: 0, deuda_semana: 0, semana_deuda: sem
   }).select().single();
   loading(false);
   if (error) { showErr('Error al crear cuenta: ' + error.message); return; }
   currentUser = data;
   await showCliente();
+}
+
+function toggleUbicacionOtro() {
+  const val = document.getElementById('r-ubicacion').value;
+  document.getElementById('r-ubicacion-otro-wrap').style.display = val === 'OTRO' ? 'block' : 'none';
 }
 
 async function logout() {
@@ -806,21 +841,28 @@ async function confirmarPedido() {
     return { pid, nombre: p.nombre, precio: p.precio, qty, imagen_base64: p.imagen_base64 || null };
   });
   if (items.length === 0) return;
+  const banco = document.getElementById('pedido-banco').value.trim();
+  const telPago = document.getElementById('pedido-tel-pago').value.trim();
+  const fechaPago = document.getElementById('pedido-fecha-pago').value;
+  const horaPago = document.getElementById('pedido-hora-pago').value;
+  if (!banco) { notif('Ingresa el nombre del banco'); return; }
+  if (!telPago) { notif('Ingresa el teléfono de pago'); return; }
+  if (!fechaPago) { notif('Ingresa la fecha de pago'); return; }
+  if (!horaPago) { notif('Ingresa la hora de pago'); return; }
   const total = items.reduce((s, i) => s + i.precio * i.qty, 0);
   loading(true, 'Registrando pedido...');
   const { data: pedido, error: pe } = await sb.from('pedidos').insert({
-    cliente_id: currentUser.id, semana: semanaActual(), total, entregado: false
+    cliente_id: currentUser.id, semana: semanaActual(), total, entregado: false,
+    banco, telefono_pago: telPago, fecha_pago: fechaPago, hora_pago: horaPago
   }).select().single();
   if (pe) { loading(false); notif('Error al guardar pedido'); return; }
   await sb.from('pedido_items').insert(items.map(i => ({
     pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, imagen_base64: i.imagen_base64
   })));
-  // Actualizar deuda
   const u = await sincronizarDeuda(currentUser.id);
   const nuevaDeudaSem = (u.deuda_semana || 0) + total;
   await sb.from('profiles').update({ deuda_semana: nuevaDeudaSem, semana_deuda: semanaActual() }).eq('id', currentUser.id);
   currentUser.deuda_semana = nuevaDeudaSem;
-  // Descontar stock
   for (const item of items) {
     const p = productosActuales.find(x => x.id === item.pid);
     if (p && p.stock !== null && p.stock !== undefined) {
@@ -954,13 +996,15 @@ async function renderClienteHistorial() {
   loading(false);
   const el = document.getElementById('c-historial-list');
   if ((!pedidos || pedidos.length === 0) && (!pagos || pagos.length === 0)) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No tenés registros aún</p></div>'; return;
+    el.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No tienes registros aún</p></div>'; return;
   }
+  window._historialData = { pedidos: pedidos || [], pagos: pagos || [] };
+  const btnExcel = `<button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="exportarHistorialExcel()">📊 Exportar a Excel</button>`;
   const ev = [
     ...(pedidos || []).map(p => ({ ...p, tipo: 'pedido' })),
-    ...(pagos || []).map(p => ({ ...p, tipo: 'pago', ts: p.created_at }))
+    ...(pagos || []).map(p => ({ ...p, tipo: 'pago' }))
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  el.innerHTML = ev.map(e => {
+  el.innerHTML = btnExcel + ev.map(e => {
     if (e.tipo === 'pedido') return `<div class="historial-item">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
         <div><strong>📦 Pedido</strong><br><span style="font-size:12px;color:var(--text2);">${new Date(e.created_at).toLocaleDateString('es-CO')}</span></div>
@@ -968,6 +1012,7 @@ async function renderClienteHistorial() {
       </div>
       <div style="font-size:13px;color:var(--text2);">${(e.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</div>
       <div style="font-weight:700;font-size:14px;margin-top:6px;">${fmt(e.total)}</div>
+      ${e.banco ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;">🏦 ${e.banco} · 📱 ${e.telefono_pago || ''} · 📅 ${e.fecha_pago || ''} ${e.hora_pago || ''}</div>` : ''}
     </div>`;
     return `<div class="historial-item">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
@@ -978,6 +1023,30 @@ async function renderClienteHistorial() {
       ${e.tasa_cambio ? `<div style="font-size:11px;color:var(--text3);margin-top:3px;">Tasa: ${e.tasa_cambio.toLocaleString('es-CO')}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+function exportarHistorialExcel() {
+  const { pedidos, pagos } = window._historialData || { pedidos: [], pagos: [] };
+  const rows = [['Tipo', 'Fecha', 'Detalle', 'Monto', 'Banco', 'Teléfono', 'Fecha Pago', 'Hora', 'Estado']];
+  pedidos.forEach(p => {
+    const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    rows.push(['Pedido', new Date(p.created_at).toLocaleDateString('es-CO'), prods, p.total, p.banco || '', p.telefono_pago || '', p.fecha_pago || '', p.hora_pago || '', p.entregado ? 'Entregado' : 'Pendiente']);
+  });
+  pagos.forEach(p => {
+    rows.push(['Pago', new Date(p.created_at).toLocaleDateString('es-CO'), p.descripcion, p.monto, '', '', '', '', '']);
+  });
+  descargarExcel(rows, `historial_${currentUser.username}.csv`);
+  notif('✓ Archivo descargado');
+}
+
+function descargarExcel(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── ADMIN: LISTA ──────────────────────────────────
@@ -1086,23 +1155,55 @@ async function renderAdminPedidos() {
   const sem = semanaActual();
   document.getElementById('a-pedidos-semana-sub').textContent = `Semana ${sem}`;
   loading(true, 'Cargando pedidos...');
-  const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido)').eq('semana', sem).order('created_at', { ascending: false });
+  const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)').eq('semana', sem).order('created_at', { ascending: false });
   loading(false);
   const el = document.getElementById('a-pedidos-list');
   if (!pedidos || pedidos.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No hay pedidos esta semana</p></div>'; return; }
-  el.innerHTML = pedidos.map(p => {
+
+  // Botón exportar Excel
+  const btnExcel = `<button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="exportarPedidosExcel()">📊 Exportar a Excel</button>`;
+
+  el.innerHTML = btnExcel + pedidos.map(p => {
     const u = p.profiles;
+    const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
     return `<div class="card" style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div><div style="font-weight:700;font-size:15px;">${u ? u.nombre + ' ' + u.apellido : '—'}</div>
-        <div style="font-size:12px;color:var(--text2);">${new Date(p.created_at).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}</div></div>
+        <div>
+          <div style="font-weight:700;font-size:15px;">${u ? u.nombre + ' ' + u.apellido : '—'}</div>
+          <div style="font-size:12px;color:var(--text2);">${new Date(p.created_at).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })} · 📍 ${ubicacion}</div>
+        </div>
         <span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span>
       </div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${(p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(' · ')}</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:10px;">${fmt(p.total)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">${(p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(' · ')}</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:8px;">${fmt(p.total)}</div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--text2);margin-bottom:10px;">
+        🏦 ${p.banco || '—'} · 📱 ${p.telefono_pago || '—'} · 📅 ${p.fecha_pago || '—'} ${p.hora_pago || ''}
+      </div>
       ${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Registrar entrega</button>` : '<span style="font-size:12px;color:var(--green);">✓ Entregado</span>'}
     </div>`;
   }).join('');
+
+  // Guardar datos para exportar
+  window._pedidosData = pedidos;
+}
+
+async function exportarPedidosExcel() {
+  const pedidos = window._pedidosData || [];
+  if (pedidos.length === 0) { notif('No hay datos para exportar'); return; }
+  const rows = [['Cliente', 'Ubicación', 'Productos', 'Total', 'Banco', 'Teléfono Pago', 'Fecha Pago', 'Hora', 'Estado', 'Fecha Pedido']];
+  pedidos.forEach(p => {
+    const u = p.profiles;
+    const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '' : '';
+    const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    rows.push([
+      u ? u.nombre + ' ' + u.apellido : '', ubicacion, prods, p.total,
+      p.banco || '', p.telefono_pago || '', p.fecha_pago || '', p.hora_pago || '',
+      p.entregado ? 'Entregado' : 'Pendiente',
+      new Date(p.created_at).toLocaleDateString('es-CO')
+    ]);
+  });
+  descargarExcel(rows, `pedidos_${semanaActual()}.csv`);
+  notif('✓ Archivo descargado');
 }
 
 // ── ADMIN: CLIENTES ───────────────────────────────
