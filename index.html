@@ -210,7 +210,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   <div class="login-box">
     <div class="login-logo">
       <div class="login-emoji">🧀</div>
-      <h1>Venta de Quesos<br>y Algo Más</h1>
+      <h1>Quesos<br>y Algo Más</h1>
       <p>Productos frescos cada semana</p>
     </div>
     <div class="login-tabs">
@@ -243,7 +243,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
 <!-- CLIENTE -->
 <div id="screen-cliente" class="screen">
   <div class="topbar">
-    <div class="topbar-logo">🧀<div>Venta de Quesos<small>y Algo Más</small></div></div>
+    <div class="topbar-logo">🧀<div>Quesos<small>y Algo Más</small></div></div>
     <div class="topbar-right">
       <span class="user-chip" id="cliente-name-chip"></span>
       <button class="cart-btn" onclick="openCart()">🛒<span class="cart-badge" id="cart-badge" style="display:none">0</span></button>
@@ -268,7 +268,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     </div>
     <div class="card">
       <div class="card-title">Bienvenido/a 👋</div>
-      <div class="card-sub">Revisá la lista semanal y hacé tu pedido desde la Tienda.</div>
+      <div class="card-sub">Revisa la lista semanal y realiza tu pedido desde la Tienda.</div>
       <div id="c-lista-estado"></div>
     </div>
     <div id="c-ultimo-pedido-card" style="display:none">
@@ -288,9 +288,9 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">La IA extrae automáticamente los datos</p>
       <div class="upload-area" id="upload-area" onclick="document.getElementById('comp-file').click()">
         <div style="font-size:32px;">📎</div>
-        <p style="font-size:13px;color:var(--text2);margin-top:6px;">Tocá para subir imagen o PDF</p>
+        <p style="font-size:13px;color:var(--text2);margin-top:6px;">Tocá para subir imagen JPG</p>
       </div>
-      <input type="file" id="comp-file" accept="image/*,application/pdf" style="display:none" onchange="handleCompFile(this)"/>
+      <input type="file" id="comp-file" accept="image/jpeg,image/jpg" style="display:none" onchange="handleCompFile(this)"/>
       <button class="btn btn-primary btn-full" style="margin-top:12px;" onclick="procesarComprobante()" id="btn-procesar-comp" disabled>Procesar con IA</button>
       <div class="pago-ai-result" id="pago-ai-result">
         <div style="font-weight:700;margin-bottom:8px;color:var(--green);">✓ Pago detectado</div>
@@ -322,7 +322,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
 <!-- ADMIN -->
 <div id="screen-admin" class="screen">
   <div class="topbar">
-    <div class="topbar-logo">🧀<div>Admin Panel<small>Venta de Quesos y Algo Más</small></div></div>
+    <div class="topbar-logo">🧀<div>Admin Panel<small>Quesos y Algo Más</small></div></div>
     <div class="topbar-right">
       <span class="user-chip">Administrador</span>
       <button class="btn-logout" onclick="logout()">Salir</button>
@@ -333,6 +333,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="tab" onclick="adminTab('pedidos')">Pedidos</div>
     <div class="tab" onclick="adminTab('clientes')">Clientes</div>
     <div class="tab" onclick="adminTab('entregas')">Entregas</div>
+    <div class="tab" onclick="adminTab('config')">Configuración</div>
   </div>
   <div class="main" id="atab-lista">
     <div class="section-title">Lista semanal</div>
@@ -390,6 +391,20 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-title">Registro de entregas</div>
     <div class="section-sub">Historial de entregas realizadas</div>
     <div id="a-entregas-list"></div>
+  </div>
+  <div class="main" id="atab-config" style="display:none">
+    <div class="section-title">Configuración</div>
+    <div class="section-sub">Parámetros generales del sistema</div>
+    <div class="card">
+      <div class="card-title" style="font-size:16px;">💱 Tasa de cambio</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Esta tasa se usará al registrar pagos de clientes y quedará almacenada en cada transacción.</p>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;color:var(--text2);">Tasa actual</span>
+        <span style="font-family:'Playfair Display',serif;font-size:22px;color:var(--brown);font-weight:600;" id="tasa-actual-display">Cargando...</span>
+      </div>
+      <div class="form-group"><label>Nueva tasa de cambio</label><input type="number" id="nueva-tasa" placeholder="Ej: 4200" step="0.01"/></div>
+      <button class="btn btn-primary" onclick="guardarTasa()">Guardar tasa</button>
+    </div>
   </div>
 </div>
 
@@ -456,6 +471,7 @@ let abonarTarget = null;
 let compFileData = null;
 let listaActual = null;
 let productosActuales = [];
+let tasaCambioActual = 0;
 
 // ── HELPERS ───────────────────────────────────────
 function semanaActual() {
@@ -476,6 +492,30 @@ function loading(show, txt = 'Cargando...') {
   const el = document.getElementById('loading-overlay');
   document.getElementById('loading-text').textContent = txt;
   el.classList.toggle('active', show);
+}
+
+async function cargarTasa() {
+  const { data } = await sb.from('configuracion').select('tasa_cambio').eq('id', 'global').single();
+  if (data) tasaCambioActual = data.tasa_cambio || 0;
+}
+
+async function guardarTasa() {
+  const nueva = Number(document.getElementById('nueva-tasa').value) || 0;
+  if (nueva <= 0) { notif('Ingresá una tasa válida'); return; }
+  loading(true, 'Guardando tasa...');
+  await sb.from('configuracion').update({ tasa_cambio: nueva, updated_at: new Date().toISOString() }).eq('id', 'global');
+  tasaCambioActual = nueva;
+  loading(false);
+  document.getElementById('tasa-actual-display').textContent = nueva.toLocaleString('es-CO');
+  document.getElementById('nueva-tasa').value = '';
+  notif('✓ Tasa de cambio actualizada: ' + nueva.toLocaleString('es-CO'));
+}
+
+async function renderAdminConfig() {
+  const { data } = await sb.from('configuracion').select('tasa_cambio').eq('id', 'global').single();
+  const tasa = data ? data.tasa_cambio || 0 : 0;
+  tasaCambioActual = tasa;
+  document.getElementById('tasa-actual-display').textContent = tasa > 0 ? tasa.toLocaleString('es-CO') : 'No configurada';
 }
 function notif(msg) {
   const el = document.getElementById('notif');
@@ -552,12 +592,14 @@ async function logout() {
 
 // ── NAVEGACIÓN ────────────────────────────────────
 async function showAdmin() {
+  await cargarTasa();
   showScreen('screen-admin');
   adminTab('lista');
   await renderAdminLista();
 }
 
 async function showCliente() {
+  await cargarTasa();
   showScreen('screen-cliente');
   document.getElementById('cliente-name-chip').textContent = currentUser.nombre;
   carrito = {}; updateCartBadge();
@@ -577,15 +619,16 @@ function clienteTab(t) {
 }
 
 function adminTab(t) {
-  ['lista', 'pedidos', 'clientes', 'entregas'].forEach(x => {
+  ['lista', 'pedidos', 'clientes', 'entregas', 'config'].forEach(x => {
     const el = document.getElementById('atab-' + x);
     if (el) el.style.display = x === t ? 'block' : 'none';
   });
   document.querySelectorAll('#screen-admin .tab').forEach((el, i) =>
-    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas'][i] === t));
+    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'config'][i] === t));
   if (t === 'pedidos') renderAdminPedidos();
   if (t === 'clientes') renderAdminClientes();
   if (t === 'entregas') renderAdminEntregas();
+  if (t === 'config') renderAdminConfig();
 }
 
 // ── DEUDA ─────────────────────────────────────────
@@ -830,7 +873,7 @@ async function procesarComprobante() {
 
 async function aplicarPago(monto, desc) {
   loading(true, 'Registrando pago...');
-  await sb.from('pagos').insert({ cliente_id: currentUser.id, monto, descripcion: desc, semana: semanaActual() });
+  await sb.from('pagos').insert({ cliente_id: currentUser.id, monto, descripcion: desc, semana: semanaActual(), tasa_cambio: tasaCambioActual });
   const u = await sincronizarDeuda(currentUser.id);
   let resta = monto;
   let nuevaSem = u.deuda_semana || 0;
@@ -874,6 +917,7 @@ async function renderClienteHistorial() {
         <span class="badge badge-green">${fmt(e.monto)}</span>
       </div>
       <div style="font-size:13px;color:var(--text2);">${e.descripcion}</div>
+      ${e.tasa_cambio ? `<div style="font-size:11px;color:var(--text3);margin-top:3px;">Tasa: ${e.tasa_cambio.toLocaleString('es-CO')}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -968,7 +1012,7 @@ async function generarMensajeWA() {
   const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id);
   if (!prods || prods.length === 0) { notif('No hay productos'); return; }
   const sem = semanaActual();
-  let msg = `🧀 *Venta de Quesos y Algo Más*\n📅 *Lista semanal ${sem}*\n\n`;
+  let msg = `🧀 *Quesos y Algo Más*\n📅 *Lista semanal ${sem}*\n\n`;
   prods.forEach(p => {
     const st = (p.stock !== null && p.stock !== undefined) ? ` _(${p.stock} disponibles)_` : '';
     msg += `• ${p.nombre} — *${fmt(p.precio)}* / ${p.unidad}${st}\n`;
@@ -1093,7 +1137,7 @@ async function confirmarAbono() {
   const ref = document.getElementById('abonar-ref').value.trim() || 'Pago vía admin';
   if (monto <= 0) { notif('Ingresá un monto'); return; }
   loading(true, 'Registrando abono...');
-  await sb.from('pagos').insert({ cliente_id: abonarTarget.uid, monto, descripcion: ref, semana: semanaActual() });
+  await sb.from('pagos').insert({ cliente_id: abonarTarget.uid, monto, descripcion: ref, semana: semanaActual(), tasa_cambio: tasaCambioActual });
   const u = await sincronizarDeuda(abonarTarget.uid);
   let resta = monto, nuevaSem = u.deuda_semana || 0, nuevaAnt = u.deuda_anterior || 0;
   if (nuevaSem > 0) { const q = Math.min(resta, nuevaSem); nuevaSem -= q; resta -= q; }
