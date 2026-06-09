@@ -229,7 +229,10 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
         <div class="form-group"><label>Nombre</label><input type="text" id="r-nombre" placeholder="Tu nombre"/></div>
         <div class="form-group"><label>Apellido</label><input type="text" id="r-apellido" placeholder="Apellido"/></div>
       </div>
-      <div class="form-group"><label>Teléfono</label><input type="tel" id="r-tel" placeholder="3001234567"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Cédula</label><input type="text" id="r-cedula" placeholder="123456789"/></div>
+        <div class="form-group"><label>Teléfono</label><input type="tel" id="r-tel" placeholder="3001234567"/></div>
+      </div>
       <div class="form-group"><label>Usuario</label><input type="text" id="r-user" placeholder="Elige un usuario único"/></div>
       <div class="form-group"><label>Contraseña</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres"/></div>
       <button class="btn btn-primary btn-full" onclick="doRegister()">Crear cuenta</button>
@@ -378,7 +381,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Gestión de cuentas y deudas</div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Cliente</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th></th></tr></thead>
         <tbody id="a-clientes-tbody"></tbody>
       </table>
     </div>
@@ -520,6 +523,7 @@ async function doLogin() {
 async function doRegister() {
   const nombre = document.getElementById('r-nombre').value.trim();
   const apellido = document.getElementById('r-apellido').value.trim();
+  const cedula = document.getElementById('r-cedula').value.trim();
   const tel = document.getElementById('r-tel').value.trim();
   const username = document.getElementById('r-user').value.trim();
   const pass = document.getElementById('r-pass').value;
@@ -530,7 +534,7 @@ async function doRegister() {
   if (exists) { loading(false); showErr('Ese usuario ya existe'); return; }
   const sem = semanaActual();
   const { data, error } = await sb.from('profiles').insert({
-    username, password_hash: pass, nombre, apellido, tel,
+    username, password_hash: pass, nombre, apellido, cedula, tel,
     rol: 'cliente', deuda_anterior: 0, deuda_semana: 0, semana_deuda: sem
   }).select().single();
   loading(false);
@@ -1006,12 +1010,13 @@ async function renderAdminClientes() {
   loading(false);
   const tbody = document.getElementById('a-clientes-tbody');
   if (!clientes || clientes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text2);">No hay clientes registrados</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text2);">No hay clientes registrados</td></tr>'; return;
   }
   tbody.innerHTML = clientes.map(u => {
     const total = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
     return `<tr>
       <td><div style="font-weight:600;">${u.nombre} ${u.apellido}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
+      <td>${u.cedula || '—'}</td>
       <td>${u.telefono || '—'}</td>
       <td style="font-weight:700;">${fmt(total)}</td>
       <td><span class="badge ${total <= 0 ? 'badge-green' : 'badge-amber'}">${total <= 0 ? 'Al día' : 'Con deuda'}</span></td>
