@@ -1157,12 +1157,7 @@ async function generarMensajeWA() {
   const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id);
   if (!prods || prods.length === 0) { notif('No hay productos'); return; }
   const sem = semanaActual();
-  let msg = `🧀 *Quesos y Algo Más*\n📅 *Lista semanal ${sem}*\n\n`;
-  prods.forEach(p => {
-    const st = (p.stock !== null && p.stock !== undefined) ? ` _(${p.stock} disponibles)_` : '';
-    msg += `• ${p.nombre} — *${fmt(p.precio)}* / ${p.unidad}${st}\n`;
-  });
-  msg += `\n📲 Ingresá a la app para hacer tu pedido:\nhttps://quesos-y-algo-mas.netlify.app\n\n_¡Productos frescos cada semana!_ 🌿`;
+  let msg = `🧀 *Hola estimados clientes!*\n\nSi desea realizar su pedido, por favor ingresar a la siguiente app:\n\nhttps://quesos-y-algo-mas.netlify.app\n\n_¡Productos frescos cada semana!_ 🌿`;
   document.getElementById('a-wa-texto').textContent = msg;
   document.getElementById('a-wa-msg').style.display = 'block';
 }
