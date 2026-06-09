@@ -310,6 +310,17 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     </div>
 
     <div class="card">
+      <div class="card-title" style="font-size:16px;">🏦 Datos bancarios</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Completa estos datos antes de registrar tu pago.</p>
+      <div class="form-group"><label>Banco</label><input type="text" id="pedido-banco" placeholder="Ej: Banesco, Mercantil, Venezuela..."/></div>
+      <div class="form-group"><label>Teléfono de pago</label><input type="tel" id="pedido-tel-pago" placeholder="04141234567"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Fecha de pago</label><input type="date" id="pedido-fecha-pago"/></div>
+        <div class="form-group"><label>Hora de pago</label><input type="time" id="pedido-hora-pago"/></div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title" style="font-size:16px;">📎 Sube tu comprobante</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">La IA extrae el monto y la referencia, y calcula el equivalente en dólares.</p>
       <div class="upload-area" id="upload-area" onclick="document.getElementById('comp-file').click()">
@@ -463,15 +474,6 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="cart-total-row">
       <span class="cart-total-label">Total del pedido</span>
       <span class="cart-total-val" id="cart-total-val">$0</span>
-    </div>
-    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px;">
-      <div style="font-size:13px;font-weight:600;color:var(--brown);margin-bottom:10px;">Datos de pago</div>
-      <div class="form-group"><label>Banco</label><input type="text" id="pedido-banco" placeholder="Ej: Banesco, Mercantil..."/></div>
-      <div class="form-group"><label>Teléfono de pago</label><input type="tel" id="pedido-tel-pago" placeholder="04141234567"/></div>
-      <div class="form-row">
-        <div class="form-group"><label>Fecha de pago</label><input type="date" id="pedido-fecha-pago"/></div>
-        <div class="form-group"><label>Hora de pago</label><input type="time" id="pedido-hora-pago"/></div>
-      </div>
     </div>
     <button class="btn btn-green btn-full" onclick="confirmarPedido()">Confirmar pedido</button>
   </div>
@@ -841,19 +843,10 @@ async function confirmarPedido() {
     return { pid, nombre: p.nombre, precio: p.precio, qty, imagen_base64: p.imagen_base64 || null };
   });
   if (items.length === 0) return;
-  const banco = document.getElementById('pedido-banco').value.trim();
-  const telPago = document.getElementById('pedido-tel-pago').value.trim();
-  const fechaPago = document.getElementById('pedido-fecha-pago').value;
-  const horaPago = document.getElementById('pedido-hora-pago').value;
-  if (!banco) { notif('Ingresa el nombre del banco'); return; }
-  if (!telPago) { notif('Ingresa el teléfono de pago'); return; }
-  if (!fechaPago) { notif('Ingresa la fecha de pago'); return; }
-  if (!horaPago) { notif('Ingresa la hora de pago'); return; }
   const total = items.reduce((s, i) => s + i.precio * i.qty, 0);
   loading(true, 'Registrando pedido...');
   const { data: pedido, error: pe } = await sb.from('pedidos').insert({
-    cliente_id: currentUser.id, semana: semanaActual(), total, entregado: false,
-    banco, telefono_pago: telPago, fecha_pago: fechaPago, hora_pago: horaPago
+    cliente_id: currentUser.id, semana: semanaActual(), total, entregado: false
   }).select().single();
   if (pe) { loading(false); notif('Error al guardar pedido'); return; }
   await sb.from('pedido_items').insert(items.map(i => ({
@@ -880,15 +873,30 @@ async function confirmarPedido() {
 function renderClientePagar() {
   document.getElementById('pago-monto-manual').value = '';
   document.getElementById('pago-desc').value = '';
+  document.getElementById('pedido-banco').value = '';
+  document.getElementById('pedido-tel-pago').value = '';
+  document.getElementById('pedido-fecha-pago').value = '';
+  document.getElementById('pedido-hora-pago').value = '';
   document.getElementById('pago-preview').style.display = 'none';
   document.getElementById('pago-ai-result').style.display = 'none';
   document.getElementById('pago-conversion').style.display = 'none';
   document.getElementById('upload-area').className = 'upload-area';
   document.getElementById('upload-area').innerHTML = '<div style="font-size:32px;">📎</div><p style="font-size:13px;color:var(--text2);margin-top:6px;">Toca para subir imagen JPG</p>';
   document.getElementById('btn-procesar-comp').disabled = true;
-  // Mostrar tasa vigente
   document.getElementById('c-tasa-display').textContent = tasaCambioActual > 0 ? tasaCambioActual.toLocaleString('es-CO') + ' Bs./$' : 'No configurada';
   compFileData = null;
+}
+
+function validarDatosBancarios() {
+  const banco = document.getElementById('pedido-banco').value.trim();
+  const tel = document.getElementById('pedido-tel-pago').value.trim();
+  const fecha = document.getElementById('pedido-fecha-pago').value;
+  const hora = document.getElementById('pedido-hora-pago').value;
+  if (!banco) { notif('Ingresa el nombre del banco'); return false; }
+  if (!tel) { notif('Ingresa el teléfono de pago'); return false; }
+  if (!fecha) { notif('Ingresa la fecha de pago'); return false; }
+  if (!hora) { notif('Ingresa la hora de pago'); return false; }
+  return { banco, tel, fecha, hora };
 }
 
 function fmtUSD(n) { return '$ ' + Number(n || 0).toFixed(2) + ' USD'; }
@@ -914,12 +922,14 @@ function previewPago() {
 }
 
 async function registrarPagoManual() {
+  const datos = validarDatosBancarios();
+  if (!datos) return;
   const bs = Number(document.getElementById('pago-monto-manual').value) || 0;
   const desc = document.getElementById('pago-desc').value.trim() || 'Pago manual';
   if (bs <= 0) { notif('Ingresa un monto válido'); return; }
   if (tasaCambioActual <= 0) { notif('La tasa de cambio no está configurada. Contacta al administrador.'); return; }
   const dolares = bsADolares(bs);
-  await aplicarPago(dolares, `${desc} · Bs. ${bs.toLocaleString('es-CO')}`);
+  await aplicarPago(dolares, `${desc} · Bs. ${bs.toLocaleString('es-CO')}`, datos);
 }
 
 function handleCompFile(input) {
@@ -967,13 +977,21 @@ async function procesarComprobante() {
 
 async function confirmarPagoIA() {
   if (!pagoIAPendiente) return;
-  await aplicarPago(pagoIAPendiente.dolares, pagoIAPendiente.desc);
+  const datos = validarDatosBancarios();
+  if (!datos) return;
+  await aplicarPago(pagoIAPendiente.dolares, pagoIAPendiente.desc, datos);
   pagoIAPendiente = null;
 }
 
-async function aplicarPago(monto, desc) {
+async function aplicarPago(monto, desc, datosBancarios) {
   loading(true, 'Registrando pago...');
-  await sb.from('pagos').insert({ cliente_id: currentUser.id, monto, descripcion: desc, semana: semanaActual(), tasa_cambio: tasaCambioActual });
+  const extra = datosBancarios ? {
+    banco: datosBancarios.banco,
+    telefono_pago: datosBancarios.tel,
+    fecha_pago: datosBancarios.fecha,
+    hora_pago: datosBancarios.hora
+  } : {};
+  await sb.from('pagos').insert({ cliente_id: currentUser.id, monto, descripcion: desc, semana: semanaActual(), tasa_cambio: tasaCambioActual, ...extra });
   const u = await sincronizarDeuda(currentUser.id);
   let resta = monto;
   let nuevaSem = u.deuda_semana || 0;
@@ -984,7 +1002,7 @@ async function aplicarPago(monto, desc) {
   currentUser.deuda_semana = Math.max(0, nuevaSem);
   currentUser.deuda_anterior = Math.max(0, nuevaAnt);
   loading(false);
-  notif('✓ Pago registrado: ' + fmt(monto));
+  notif('✓ Pago registrado: ' + fmtUSD(monto));
   clienteTab('inicio');
 }
 
