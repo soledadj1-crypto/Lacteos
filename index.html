@@ -534,7 +534,7 @@ async function doRegister() {
   if (exists) { loading(false); showErr('Ese usuario ya existe'); return; }
   const sem = semanaActual();
   const { data, error } = await sb.from('profiles').insert({
-    username, password_hash: pass, nombre, apellido, cedula, tel,
+    username, password_hash: pass, nombre, apellido, cedula, telefono: tel,
     rol: 'cliente', deuda_anterior: 0, deuda_semana: 0, semana_deuda: sem
   }).select().single();
   loading(false);
