@@ -282,32 +282,59 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   </div>
   <div class="main" id="ctab-pagar" style="display:none">
     <div class="section-title">Registrar pago</div>
-    <div class="section-sub">Subí tu comprobante o ingresá los datos manualmente</div>
+    <div class="section-sub">Sube tu comprobante o ingresa los datos manualmente</div>
+
+    <!-- TASA DE CAMBIO VISIBLE -->
+    <div style="background:linear-gradient(135deg,var(--brown) 0%,var(--brown2) 100%);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;">Tasa de cambio vigente</div>
+        <div style="font-family:'Playfair Display',serif;font-size:26px;color:white;margin-top:2px;" id="c-tasa-display">—</div>
+      </div>
+      <div style="font-size:28px;">💱</div>
+    </div>
+
     <div class="card">
-      <div class="card-title" style="font-size:16px;">📎 Subir comprobante</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">La IA extrae automáticamente los datos</p>
+      <div class="card-title" style="font-size:16px;">📎 Sube tu comprobante</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">La IA extrae el monto y la referencia, y calcula el equivalente en dólares.</p>
       <div class="upload-area" id="upload-area" onclick="document.getElementById('comp-file').click()">
         <div style="font-size:32px;">📎</div>
-        <p style="font-size:13px;color:var(--text2);margin-top:6px;">Tocá para subir imagen JPG</p>
+        <p style="font-size:13px;color:var(--text2);margin-top:6px;">Toca para subir imagen JPG</p>
       </div>
       <input type="file" id="comp-file" accept="image/jpeg,image/jpg" style="display:none" onchange="handleCompFile(this)"/>
       <button class="btn btn-primary btn-full" style="margin-top:12px;" onclick="procesarComprobante()" id="btn-procesar-comp" disabled>Procesar con IA</button>
       <div class="pago-ai-result" id="pago-ai-result">
-        <div style="font-weight:700;margin-bottom:8px;color:var(--green);">✓ Pago detectado</div>
-        <div style="display:flex;justify-content:space-between;"><span>Monto</span><span id="ai-monto" style="font-weight:700;"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Referencia</span><span id="ai-ref" style="color:var(--text2);"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Fecha</span><span id="ai-fecha" style="color:var(--text2);"></span></div>
+        <div style="font-weight:700;margin-bottom:10px;color:var(--green);">✓ Comprobante analizado</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Monto (Bs.)</span><span id="ai-monto" style="font-weight:700;"></span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Referencia</span><span id="ai-ref" style="color:var(--text2);font-size:12px;text-align:right;max-width:60%;"></span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Fecha</span><span id="ai-fecha" style="color:var(--text2);"></span></div>
+        <div style="border-top:1px solid var(--green2);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;">Equivalente en USD</span>
+          <span id="ai-dolares" style="font-family:'Playfair Display',serif;font-size:20px;color:var(--green);font-weight:700;"></span>
+        </div>
+        <button class="btn btn-green btn-full" style="margin-top:12px;" onclick="confirmarPagoIA()">Confirmar y registrar pago</button>
       </div>
     </div>
+
     <div class="divider"></div>
+
     <div class="card">
       <div class="card-title" style="font-size:16px;">✏️ Ingresar manualmente</div>
-      <div class="form-group" style="margin-top:10px;"><label>Monto (COP $)</label><input type="number" id="pago-monto-manual" placeholder="0" oninput="previewPago()"/></div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Monto en Bolívares (Bs.)</label>
+        <input type="number" id="pago-monto-manual" placeholder="0" oninput="previewPago()"/>
+      </div>
+      <div id="pago-conversion" style="display:none;background:var(--cream2);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--text2);">Equivalente en USD</span>
+          <span id="conv-dolares" style="font-family:'Playfair Display',serif;font-size:18px;color:var(--brown);font-weight:700;"></span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Tasa: <span id="conv-tasa"></span> Bs. por USD</div>
+      </div>
       <div class="form-group"><label>Referencia</label><input type="text" id="pago-desc" placeholder="Ej: Transferencia Nequi 12345"/></div>
       <button class="btn btn-green btn-full" onclick="registrarPagoManual()">Registrar pago</button>
       <div class="pago-preview" id="pago-preview">
         <div style="display:flex;justify-content:space-between;"><span>Deuda actual</span><span id="prev-deuda"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Pago</span><span id="prev-pago" style="color:var(--green);"></span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Pago (USD)</span><span id="prev-pago" style="color:var(--green);"></span></div>
         <div style="display:flex;justify-content:space-between;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;font-weight:700;"><span>Nueva deuda</span><span id="prev-nueva"></span></div>
       </div>
     </div>
@@ -813,27 +840,44 @@ function renderClientePagar() {
   document.getElementById('pago-desc').value = '';
   document.getElementById('pago-preview').style.display = 'none';
   document.getElementById('pago-ai-result').style.display = 'none';
+  document.getElementById('pago-conversion').style.display = 'none';
   document.getElementById('upload-area').className = 'upload-area';
-  document.getElementById('upload-area').innerHTML = '<div style="font-size:32px;">📎</div><p style="font-size:13px;color:var(--text2);margin-top:6px;">Tocá para subir imagen o PDF</p>';
+  document.getElementById('upload-area').innerHTML = '<div style="font-size:32px;">📎</div><p style="font-size:13px;color:var(--text2);margin-top:6px;">Toca para subir imagen JPG</p>';
   document.getElementById('btn-procesar-comp').disabled = true;
+  // Mostrar tasa vigente
+  document.getElementById('c-tasa-display').textContent = tasaCambioActual > 0 ? tasaCambioActual.toLocaleString('es-CO') + ' Bs./$' : 'No configurada';
   compFileData = null;
 }
 
+function fmtUSD(n) { return '$ ' + Number(n || 0).toFixed(2) + ' USD'; }
+function bsADolares(bs) { return tasaCambioActual > 0 ? bs / tasaCambioActual : 0; }
+
 function previewPago() {
-  const monto = Number(document.getElementById('pago-monto-manual').value) || 0;
-  if (monto <= 0) { document.getElementById('pago-preview').style.display = 'none'; return; }
+  const bs = Number(document.getElementById('pago-monto-manual').value) || 0;
+  const convEl = document.getElementById('pago-conversion');
+  if (bs <= 0) {
+    convEl.style.display = 'none';
+    document.getElementById('pago-preview').style.display = 'none';
+    return;
+  }
+  const dolares = bsADolares(bs);
+  document.getElementById('conv-dolares').textContent = fmtUSD(dolares);
+  document.getElementById('conv-tasa').textContent = tasaCambioActual.toLocaleString('es-CO');
+  convEl.style.display = 'block';
   const total = (currentUser.deuda_anterior || 0) + (currentUser.deuda_semana || 0);
-  document.getElementById('prev-deuda').textContent = fmt(total);
-  document.getElementById('prev-pago').textContent = '- ' + fmt(monto);
-  document.getElementById('prev-nueva').textContent = fmt(Math.max(0, total - monto));
+  document.getElementById('prev-deuda').textContent = fmtUSD(total);
+  document.getElementById('prev-pago').textContent = '- ' + fmtUSD(dolares);
+  document.getElementById('prev-nueva').textContent = fmtUSD(Math.max(0, total - dolares));
   document.getElementById('pago-preview').style.display = 'block';
 }
 
 async function registrarPagoManual() {
-  const monto = Number(document.getElementById('pago-monto-manual').value) || 0;
+  const bs = Number(document.getElementById('pago-monto-manual').value) || 0;
   const desc = document.getElementById('pago-desc').value.trim() || 'Pago manual';
-  if (monto <= 0) { notif('Ingresá un monto válido'); return; }
-  await aplicarPago(monto, desc);
+  if (bs <= 0) { notif('Ingresa un monto válido'); return; }
+  if (tasaCambioActual <= 0) { notif('La tasa de cambio no está configurada. Contacta al administrador.'); return; }
+  const dolares = bsADolares(bs);
+  await aplicarPago(dolares, `${desc} · Bs. ${bs.toLocaleString('es-CO')}`);
 }
 
 function handleCompFile(input) {
@@ -848,27 +892,41 @@ function handleCompFile(input) {
   reader.readAsDataURL(file);
 }
 
+let pagoIAPendiente = null;
+
 async function procesarComprobante() {
   if (!compFileData) return;
+  if (tasaCambioActual <= 0) { notif('La tasa de cambio no está configurada. Contacta al administrador.'); return; }
   const btn = document.getElementById('btn-procesar-comp');
   btn.innerHTML = '<span class="spinner-inline"></span> Analizando...'; btn.disabled = true;
   try {
-    const isImg = compFileData.type.startsWith('image/');
     const b64 = compFileData.data.split(',')[1];
-    const content = isImg
-      ? [{ type: 'image', source: { type: 'base64', media_type: compFileData.type, data: b64 } }, { type: 'text', text: 'Analizá este comprobante de pago. Extraé monto, referencia y fecha. Responde SOLO en JSON: {"monto":number,"referencia":"string","fecha":"string"}. Sin texto extra.' }]
-      : [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: 'Analizá este comprobante de pago. Extraé monto, referencia y fecha. Responde SOLO en JSON: {"monto":number,"referencia":"string","fecha":"string"}. Sin texto extra.' }];
-    const resp = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, messages: [{ role: 'user', content }] }) });
+    const content = [
+      { type: 'image', source: { type: 'base64', media_type: compFileData.type, data: b64 } },
+      { type: 'text', text: 'Analiza este comprobante de pago bancario o transferencia. Extrae el monto total pagado, el número de referencia y la fecha. Responde SOLO en JSON sin texto adicional: {"monto":number,"referencia":"string","fecha":"string"}. El monto debe ser solo el número sin símbolos.' }
+    ];
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, messages: [{ role: 'user', content }] })
+    });
     const data = await resp.json();
     const txt = data.content?.map(c => c.text || '').join('').replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(txt);
-    document.getElementById('ai-monto').textContent = fmt(parsed.monto);
+    const dolares = bsADolares(parsed.monto);
+    document.getElementById('ai-monto').textContent = parsed.monto.toLocaleString('es-CO') + ' Bs.';
     document.getElementById('ai-ref').textContent = parsed.referencia || '—';
     document.getElementById('ai-fecha').textContent = parsed.fecha || '—';
+    document.getElementById('ai-dolares').textContent = fmtUSD(dolares);
     document.getElementById('pago-ai-result').style.display = 'block';
-    await aplicarPago(parsed.monto, `${parsed.referencia || 'Transferencia'} · ${parsed.fecha || ''}`);
-  } catch (e) { notif('No se pudo leer el comprobante. Intentá manualmente.'); }
+    pagoIAPendiente = { dolares, desc: `${parsed.referencia || 'Transferencia'} · ${parsed.fecha || ''}` };
+  } catch (e) { notif('No se pudo leer el comprobante. Intenta manualmente.'); }
   btn.innerHTML = 'Procesar con IA'; btn.disabled = false;
+}
+
+async function confirmarPagoIA() {
+  if (!pagoIAPendiente) return;
+  await aplicarPago(pagoIAPendiente.dolares, pagoIAPendiente.desc);
+  pagoIAPendiente = null;
 }
 
 async function aplicarPago(monto, desc) {
