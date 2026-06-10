@@ -899,10 +899,11 @@ async function confirmarPedido() {
   const { data: pedido, error: pe } = await sb.from('pedidos').insert({
     cliente_id: currentUser.id, semana: semanaActual(), total, entregado: false
   }).select().single();
-  if (pe) { loading(false); notif('Error al guardar pedido'); return; }
-  await sb.from('pedido_items').insert(items.map(i => ({
+  if (pe) { loading(false); notif('Error al guardar pedido: ' + pe.message); return; }
+  const { error: ie } = await sb.from('pedido_items').insert(items.map(i => ({
     pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, imagen_base64: i.imagen_base64
   })));
+  if (ie) { loading(false); notif('Error al guardar productos: ' + ie.message); return; }
   const u = await sincronizarDeuda(currentUser.id);
   const nuevaDeudaSem = (u.deuda_semana || 0) + total;
   await sb.from('profiles').update({ deuda_semana: nuevaDeudaSem, semana_deuda: semanaActual() }).eq('id', currentUser.id);
@@ -929,13 +930,8 @@ function renderClientePagar() {
   document.getElementById('pedido-fecha-pago').value = '';
   document.getElementById('pedido-hora-pago').value = '';
   document.getElementById('pago-preview').style.display = 'none';
-  document.getElementById('pago-ai-result').style.display = 'none';
   document.getElementById('pago-conversion').style.display = 'none';
-  document.getElementById('upload-area').className = 'upload-area';
-  document.getElementById('upload-area').innerHTML = '<div style="font-size:32px;">📎</div><p style="font-size:13px;color:var(--text2);margin-top:6px;">Toca para subir imagen JPG</p>';
-  document.getElementById('btn-procesar-comp').disabled = true;
   document.getElementById('c-tasa-display').textContent = tasaCambioActual > 0 ? tasaCambioActual.toLocaleString('es-CO') + ' Bs./$' : 'No configurada';
-  compFileData = null;
 }
 
 function validarDatosBancarios() {
