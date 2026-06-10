@@ -387,6 +387,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="tab" onclick="adminTab('pedidos')">Pedidos</div>
     <div class="tab" onclick="adminTab('clientes')">Clientes</div>
     <div class="tab" onclick="adminTab('entregas')">Entregas</div>
+    <div class="tab" onclick="adminTab('ubicacion')">Por Ubicación</div>
     <div class="tab" onclick="adminTab('config')">Configuración</div>
   </div>
   <div class="main" id="atab-lista">
@@ -446,9 +447,15 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Historial de entregas realizadas</div>
     <div id="a-entregas-list"></div>
   </div>
+  <div class="main" id="atab-ubicacion" style="display:none">
+    <div class="section-title">Pedidos por Ubicación</div>
+    <div class="section-sub">Selecciona una ubicación para ver los pedidos y totales de productos</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;" id="ub-filtros"></div>
+    <div id="ub-contenido"></div>
+  </div>
+
   <div class="main" id="atab-config" style="display:none">
-    <div class="section-title">Configuración</div>
-    <div class="section-sub">Parámetros generales del sistema</div>
+    <div class="section-title">Configuración</div>    <div class="section-sub">Parámetros generales del sistema</div>
     <div class="card">
       <div class="card-title" style="font-size:16px;">💱 Tasa de cambio</div>
       <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Esta tasa se usará al registrar pagos de clientes y quedará almacenada en cada transacción.</p>
@@ -706,15 +713,16 @@ function clienteTab(t) {
 }
 
 function adminTab(t) {
-  ['lista', 'pedidos', 'clientes', 'entregas', 'config'].forEach(x => {
+  ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'config'].forEach(x => {
     const el = document.getElementById('atab-' + x);
     if (el) el.style.display = x === t ? 'block' : 'none';
   });
   document.querySelectorAll('#screen-admin .tab').forEach((el, i) =>
-    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'config'][i] === t));
+    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'config'][i] === t));
   if (t === 'pedidos') renderAdminPedidos();
   if (t === 'clientes') renderAdminClientes();
   if (t === 'entregas') renderAdminEntregas();
+  if (t === 'ubicacion') renderAdminUbicacion();
   if (t === 'config') renderAdminConfig();
 }
 
@@ -1263,7 +1271,7 @@ async function renderAdminPedidos() {
   // Tabla
   const tabla = `<div class="table-wrap" style="margin-top:4px;">
     <table class="admin-table">
-      <thead><tr><th>Apellido</th><th>Nombre</th><th>Ubicación</th><th>Productos</th><th>Total</th><th>Banco</th><th>Teléfono</th><th>Fecha/Hora</th><th>Estado</th><th>Acción</th></tr></thead>
+      <thead><tr><th>Apellido</th><th>Nombre</th><th>Ubicación</th><th>Productos</th><th>Total</th><th>Teléfono</th><th>Estado</th><th>Acción</th></tr></thead>
       <tbody>${pedidos.map(p => {
         const u = p.profiles;
         const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
@@ -1274,9 +1282,7 @@ async function renderAdminPedidos() {
           <td><span style="font-size:11px;">📍 ${ubicacion}</span></td>
           <td style="font-size:12px;">${prods}</td>
           <td style="font-weight:700;white-space:nowrap;">${fmt(p.total)}</td>
-          <td style="font-size:12px;">${p.banco || '—'}</td>
           <td style="font-size:12px;">${p.telefono_pago || '—'}</td>
-          <td style="font-size:11px;white-space:nowrap;">${p.fecha_pago || '—'}<br>${p.hora_pago || ''}</td>
           <td><span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span></td>
           <td>${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Entregar</button>` : '<span style="font-size:11px;color:var(--green);">✓</span>'}</td>
         </tr>`;
@@ -1304,6 +1310,115 @@ async function exportarPedidosExcel() {
   });
   descargarExcel(rows, `pedidos_${semanaActual()}.csv`);
   notif('✓ Archivo descargado');
+}
+
+// ── ADMIN: POR UBICACIÓN ──────────────────────────
+let _ubPedidos = [];
+let _ubSeleccion = null;
+
+async function renderAdminUbicacion() {
+  loading(true, 'Cargando pedidos...');
+  const sem = semanaActual();
+  const { data: pedidos } = await sb.from('pedidos')
+    .select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)')
+    .eq('semana', sem);
+  loading(false);
+
+  _ubPedidos = pedidos || [];
+
+  // Obtener ubicaciones únicas
+  const ubicaciones = [...new Set(_ubPedidos.map(p => {
+    const u = p.profiles;
+    return u ? (u.ubicacion === 'OTRO' ? (u.ubicacion_otro || 'OTRO') : u.ubicacion) || 'Sin ubicación' : 'Sin ubicación';
+  }))].sort();
+
+  // Botones de filtro
+  document.getElementById('ub-filtros').innerHTML = ubicaciones.map(ub =>
+    `<button class="btn btn-sm" id="ub-btn-${ub.replace(/\s/g,'_')}"
+      style="background:${_ubSeleccion===ub?'var(--brown)':'var(--cream2)'};color:${_ubSeleccion===ub?'white':'var(--text2)'};"
+      onclick="filtrarUbicacion('${ub}')">📍 ${ub}</button>`
+  ).join('') + (ubicaciones.length === 0 ? '<p style="font-size:13px;color:var(--text2);">No hay pedidos esta semana</p>' : '');
+
+  if (_ubSeleccion) filtrarUbicacion(_ubSeleccion);
+  else document.getElementById('ub-contenido').innerHTML = '<div class="empty-state"><div class="icon">📍</div><p>Selecciona una ubicación para ver los pedidos</p></div>';
+}
+
+function filtrarUbicacion(ub) {
+  _ubSeleccion = ub;
+
+  // Actualizar estilo de botones
+  document.querySelectorAll('[id^="ub-btn-"]').forEach(btn => {
+    const isActive = btn.id === 'ub-btn-' + ub.replace(/\s/g,'_');
+    btn.style.background = isActive ? 'var(--brown)' : 'var(--cream2)';
+    btn.style.color = isActive ? 'white' : 'var(--text2)';
+  });
+
+  // Filtrar pedidos de esta ubicación
+  const pedidosFiltrados = _ubPedidos.filter(p => {
+    const u = p.profiles;
+    const loc = u ? (u.ubicacion === 'OTRO' ? (u.ubicacion_otro || 'OTRO') : u.ubicacion) || 'Sin ubicación' : 'Sin ubicación';
+    return loc === ub;
+  }).sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+
+  if (pedidosFiltrados.length === 0) {
+    document.getElementById('ub-contenido').innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No hay pedidos para esta ubicación</p></div>';
+    return;
+  }
+
+  // Calcular totales por producto
+  const totalesProd = {};
+  pedidosFiltrados.forEach(p => {
+    (p.pedido_items || []).forEach(item => {
+      if (!totalesProd[item.nombre]) totalesProd[item.nombre] = { cantidad: 0, subtotal: 0 };
+      totalesProd[item.nombre].cantidad += item.cantidad;
+      totalesProd[item.nombre].subtotal += item.precio * item.cantidad;
+    });
+  });
+
+  const totalGeneral = pedidosFiltrados.reduce((s, p) => s + p.total, 0);
+
+  // Resumen de totales
+  const resumenHtml = `
+    <div class="card" style="margin-bottom:14px;background:linear-gradient(135deg,var(--brown) 0%,var(--brown2) 100%);">
+      <div style="color:rgba(255,255,255,.7);font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Total general — ${ub}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:32px;color:white;margin:4px 0;">${fmt(totalGeneral)}</div>
+      <div style="color:rgba(255,255,255,.7);font-size:12px;">${pedidosFiltrados.length} pedido${pedidosFiltrados.length>1?'s':''}</div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:600;font-size:14px;color:var(--brown);margin-bottom:12px;">📦 Totales por producto</div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Producto</th><th>Cantidad total</th><th>Subtotal</th></tr></thead>
+          <tbody>${Object.entries(totalesProd).sort((a,b)=>a[0].localeCompare(b[0],'es')).map(([nombre, d]) =>
+            `<tr><td style="font-weight:500;">${nombre}</td><td style="font-weight:700;color:var(--brown);">${d.cantidad} uds.</td><td>${fmt(d.subtotal)}</td></tr>`
+          ).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // Lista de pedidos
+  const pedidosHtml = `
+    <div class="card">
+      <div style="font-weight:600;font-size:14px;color:var(--brown);margin-bottom:12px;">👥 Pedidos (${pedidosFiltrados.length})</div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Apellido</th><th>Nombre</th><th>Productos</th><th>Total</th><th>Estado</th></tr></thead>
+          <tbody>${pedidosFiltrados.map(p => {
+            const u = p.profiles;
+            const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+            return `<tr>
+              <td style="font-weight:600;">${u?.apellido || '—'}</td>
+              <td>${u?.nombre || '—'}</td>
+              <td style="font-size:12px;">${prods}</td>
+              <td style="font-weight:700;">${fmt(p.total)}</td>
+              <td><span class="badge ${p.entregado?'badge-green':'badge-amber'}">${p.entregado?'Entregado':'Pendiente'}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  document.getElementById('ub-contenido').innerHTML = resumenHtml + pedidosHtml;
 }
 
 // ── ADMIN: CLIENTES ───────────────────────────────
