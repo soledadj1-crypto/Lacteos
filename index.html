@@ -1024,13 +1024,24 @@ async function renderClienteHistorial() {
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   el.innerHTML = btnExcel + ev.map(e => {
     if (e.tipo === 'pedido') return `<div class="historial-item">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
-        <div><strong>📦 Pedido</strong><br><span style="font-size:12px;color:var(--text2);">${new Date(e.created_at).toLocaleDateString('es-CO')}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div><strong>📦 Pedido</strong><br><span style="font-size:12px;color:var(--text2);">${new Date(e.created_at).toLocaleDateString('es-CO')} · Semana ${e.semana}</span></div>
         <span class="badge ${e.entregado ? 'badge-green' : 'badge-amber'}">${e.entregado ? 'Entregado' : 'Pendiente'}</span>
       </div>
-      <div style="font-size:13px;color:var(--text2);">${(e.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</div>
-      <div style="font-weight:700;font-size:14px;margin-top:6px;">${fmt(e.total)}</div>
-      ${e.banco ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;">🏦 ${e.banco} · 📱 ${e.telefono_pago || ''} · 📅 ${e.fecha_pago || ''} ${e.hora_pago || ''}</div>` : ''}
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;">
+        ${(e.pedido_items || []).map(i => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">
+            <div>
+              <span style="font-weight:600;">${i.nombre}</span>
+              <span style="color:var(--text2);margin-left:6px;">x ${i.cantidad}</span>
+            </div>
+            <span style="font-weight:600;color:var(--brown);">${fmt(i.precio * i.cantidad)}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding-top:8px;font-weight:700;font-size:14px;">
+          <span>Total</span><span style="color:var(--brown);">${fmt(e.total)}</span>
+        </div>
+      </div>
+      ${e.banco ? `<div style="font-size:12px;color:var(--text2);">🏦 ${e.banco} · 📱 ${e.telefono_pago || ''} · 📅 ${e.fecha_pago || ''} ${e.hora_pago || ''}</div>` : ''}
     </div>`;
     return `<div class="historial-item">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
