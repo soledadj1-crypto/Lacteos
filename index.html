@@ -321,30 +321,6 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     </div>
 
     <div class="card">
-      <div class="card-title" style="font-size:16px;">📎 Sube tu comprobante</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">La IA extrae el monto y la referencia, y calcula el equivalente en dólares.</p>
-      <div class="upload-area" id="upload-area" onclick="document.getElementById('comp-file').click()">
-        <div style="font-size:32px;">📎</div>
-        <p style="font-size:13px;color:var(--text2);margin-top:6px;">Toca para subir imagen JPG</p>
-      </div>
-      <input type="file" id="comp-file" accept="image/jpeg,image/jpg" style="display:none" onchange="handleCompFile(this)"/>
-      <button class="btn btn-primary btn-full" style="margin-top:12px;" onclick="procesarComprobante()" id="btn-procesar-comp" disabled>Procesar con IA</button>
-      <div class="pago-ai-result" id="pago-ai-result">
-        <div style="font-weight:700;margin-bottom:10px;color:var(--green);">✓ Comprobante analizado</div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Monto (Bs.)</span><span id="ai-monto" style="font-weight:700;"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Referencia</span><span id="ai-ref" style="color:var(--text2);font-size:12px;text-align:right;max-width:60%;"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Fecha</span><span id="ai-fecha" style="color:var(--text2);"></span></div>
-        <div style="border-top:1px solid var(--green2);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-weight:600;">Equivalente en USD</span>
-          <span id="ai-dolares" style="font-family:'Playfair Display',serif;font-size:20px;color:var(--green);font-weight:700;"></span>
-        </div>
-        <button class="btn btn-green btn-full" style="margin-top:12px;" onclick="confirmarPagoIA()">Confirmar y registrar pago</button>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="card">
       <div class="card-title" style="font-size:16px;">✏️ Ingresar manualmente</div>
       <div class="form-group" style="margin-top:10px;">
         <label>Monto en Bolívares (Bs.)</label>
@@ -388,7 +364,8 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="tab" onclick="adminTab('clientes')">Clientes</div>
     <div class="tab" onclick="adminTab('entregas')">Entregas</div>
     <div class="tab" onclick="adminTab('ubicacion')">Por Ubicación</div>
-    <div class="tab" onclick="adminTab('config')">Configuración</div>
+    <div class="tab" onclick="adminTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="adminTab('config')">Config</div>
   </div>
   <div class="main" id="atab-lista">
     <div class="section-title">Lista semanal</div>
@@ -404,6 +381,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
           <select id="a-prod-unidad"><option>500g</option><option>1kg</option><option>250g</option><option>litro</option><option>unidad</option><option>paquete</option></select>
         </div>
         <div class="form-group"><label>Stock (vacío = sin límite)</label><input type="number" id="a-prod-stock" placeholder="Sin límite"/></div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--cream2);padding:12px;border-radius:var(--radius-sm);">
+        <input type="checkbox" id="a-prod-decimales" style="width:18px;height:18px;cursor:pointer;accent-color:var(--brown);"/>
+        <div>
+          <label for="a-prod-decimales" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Permitir cantidades decimales</label>
+          <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente podrá pedir 0.5, 1.5, etc.</p>
+        </div>
       </div>
       <div class="form-group">
         <label>Imagen de referencia</label>
@@ -447,6 +431,12 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Historial de entregas realizadas</div>
     <div id="a-entregas-list"></div>
   </div>
+  <div class="main" id="atab-dashboard" style="display:none">
+    <div class="section-title">Dashboard</div>
+    <div class="section-sub" id="dash-semana-label">Semana actual</div>
+    <div id="dash-contenido"><div class="empty-state"><div class="icon">📊</div><p>Cargando datos...</p></div></div>
+  </div>
+
   <div class="main" id="atab-ubicacion" style="display:none">
     <div class="section-title">Pedidos por Ubicación</div>
     <div class="section-sub">Selecciona una ubicación para ver los pedidos y totales de productos</div>
@@ -530,6 +520,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
         <select id="edit-prod-unidad"><option>500g</option><option>1kg</option><option>250g</option><option>litro</option><option>unidad</option><option>paquete</option></select>
       </div>
       <div class="form-group"><label>Stock (vacío = sin límite)</label><input type="number" id="edit-prod-stock" placeholder="Sin límite"/></div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--cream2);padding:12px;border-radius:var(--radius-sm);">
+      <input type="checkbox" id="edit-prod-decimales" style="width:18px;height:18px;cursor:pointer;accent-color:var(--brown);"/>
+      <div>
+        <label for="edit-prod-decimales" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Permitir cantidades decimales</label>
+        <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente podrá pedir 0.5, 1.5, etc.</p>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-editar-prod')">Cancelar</button>
@@ -713,16 +710,17 @@ function clienteTab(t) {
 }
 
 function adminTab(t) {
-  ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'config'].forEach(x => {
+  ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'dashboard', 'config'].forEach(x => {
     const el = document.getElementById('atab-' + x);
     if (el) el.style.display = x === t ? 'block' : 'none';
   });
   document.querySelectorAll('#screen-admin .tab').forEach((el, i) =>
-    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'config'][i] === t));
+    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'dashboard', 'config'][i] === t));
   if (t === 'pedidos') renderAdminPedidos();
   if (t === 'clientes') renderAdminClientes();
   if (t === 'entregas') renderAdminEntregas();
   if (t === 'ubicacion') renderAdminUbicacion();
+  if (t === 'dashboard') renderDashboard();
   if (t === 'config') renderAdminConfig();
 }
 
@@ -807,10 +805,16 @@ async function renderClienteTienda() {
         <div class="prod-card-price">${fmt(p.precio)} / ${p.unidad}</div>
         <div style="font-size:11px;min-height:14px;">${p.stock !== null && p.stock !== undefined ? `<span style="color:${agotado ? 'var(--red)' : 'var(--green)'};">${agotado ? 'Sin stock' : '📦 ' + p.stock + ' disp.'}</span>` : ''}</div>
         <div class="prod-card-qty">
-          <button class="qty-btn" onclick="cambiarCarrito('${p.id}',-1)" ${qty === 0 ? 'disabled' : ''}>−</button>
-          <span class="qty-num" id="cqty-${p.id}">${qty}</span>
-          <button class="qty-btn" onclick="cambiarCarrito('${p.id}',1)" ${agotado ? 'disabled' : ''}>+</button>
+          ${p.permite_decimales
+            ? `<button class="qty-btn" onclick="cambiarCarrito('${p.id}',-0.5)" ${(carrito[p.id]||0)===0?'disabled':''}>−</button>
+               <span class="qty-num" id="cqty-${p.id}">${carrito[p.id]||0}</span>
+               <button class="qty-btn" onclick="cambiarCarrito('${p.id}',0.5)" ${agotado?'disabled':''}>+</button>`
+            : `<button class="qty-btn" onclick="cambiarCarrito('${p.id}',-1)" ${(carrito[p.id]||0)===0?'disabled':''}>−</button>
+               <span class="qty-num" id="cqty-${p.id}">${carrito[p.id]||0}</span>
+               <button class="qty-btn" onclick="cambiarCarrito('${p.id}',1)" ${agotado?'disabled':''}>+</button>`
+          }
         </div>
+        ${p.permite_decimales ? `<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:3px;">incrementos de 0.5</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -979,57 +983,6 @@ async function registrarPagoManual() {
   await aplicarPago(dolares, `${desc} · Bs. ${bs.toLocaleString('es-CO')}`, datos);
 }
 
-function handleCompFile(input) {
-  const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    compFileData = { name: file.name, type: file.type, data: e.target.result };
-    document.getElementById('upload-area').className = 'upload-area has-file';
-    document.getElementById('upload-area').innerHTML = `<div style="font-size:28px;">✅</div><p style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px;">${file.name}</p>`;
-    document.getElementById('btn-procesar-comp').disabled = false;
-  };
-  reader.readAsDataURL(file);
-}
-
-let pagoIAPendiente = null;
-
-async function procesarComprobante() {
-  if (!compFileData) return;
-  if (tasaCambioActual <= 0) { notif('La tasa de cambio no está configurada. Contacta al administrador.'); return; }
-  const btn = document.getElementById('btn-procesar-comp');
-  btn.innerHTML = '<span class="spinner-inline"></span> Analizando...'; btn.disabled = true;
-  try {
-    const b64 = compFileData.data.split(',')[1];
-    const content = [
-      { type: 'image', source: { type: 'base64', media_type: compFileData.type, data: b64 } },
-      { type: 'text', text: 'Analiza este comprobante de pago bancario o transferencia. Extrae el monto total pagado, el número de referencia y la fecha. Responde SOLO en JSON sin texto adicional: {"monto":number,"referencia":"string","fecha":"string"}. El monto debe ser solo el número sin símbolos.' }
-    ];
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, messages: [{ role: 'user', content }] })
-    });
-    const data = await resp.json();
-    const txt = data.content?.map(c => c.text || '').join('').replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(txt);
-    const dolares = bsADolares(parsed.monto);
-    document.getElementById('ai-monto').textContent = parsed.monto.toLocaleString('es-CO') + ' Bs.';
-    document.getElementById('ai-ref').textContent = parsed.referencia || '—';
-    document.getElementById('ai-fecha').textContent = parsed.fecha || '—';
-    document.getElementById('ai-dolares').textContent = fmtUSD(dolares);
-    document.getElementById('pago-ai-result').style.display = 'block';
-    pagoIAPendiente = { dolares, desc: `${parsed.referencia || 'Transferencia'} · ${parsed.fecha || ''}` };
-  } catch (e) { notif('No se pudo leer el comprobante. Intenta manualmente.'); }
-  btn.innerHTML = 'Procesar con IA'; btn.disabled = false;
-}
-
-async function confirmarPagoIA() {
-  if (!pagoIAPendiente) return;
-  const datos = validarDatosBancarios();
-  if (!datos) return;
-  await aplicarPago(pagoIAPendiente.dolares, pagoIAPendiente.desc, datos);
-  pagoIAPendiente = null;
-}
-
 async function aplicarPago(monto, desc, datosBancarios) {
   loading(true, 'Registrando pago...');
   const extra = datosBancarios ? {
@@ -1146,7 +1099,7 @@ async function renderAdminLista() {
       ${imgEl}
       <div class="prod-list-info">
         <div class="prod-list-name">${p.nombre}</div>
-        <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${stockText}</div>
+        <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${stockText}${p.permite_decimales ? ' · <span style="color:var(--brown2);">½ permitido</span>' : ''}</div>
         <div style="font-size:11px;color:${activoColor};margin-top:2px;font-weight:600;">${activoLabel}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
@@ -1166,6 +1119,7 @@ function abrirEditarProducto(id) {
   document.getElementById('edit-prod-precio').value = p.precio;
   document.getElementById('edit-prod-unidad').value = p.unidad;
   document.getElementById('edit-prod-stock').value = p.stock !== null && p.stock !== undefined ? p.stock : '';
+  document.getElementById('edit-prod-decimales').checked = p.permite_decimales || false;
   document.getElementById('modal-editar-prod').classList.add('active');
 }
 
@@ -1175,9 +1129,10 @@ async function guardarEdicionProducto() {
   const precio = Number(document.getElementById('edit-prod-precio').value) || 0;
   const unidad = document.getElementById('edit-prod-unidad').value;
   const stockVal = document.getElementById('edit-prod-stock').value;
+  const decimales = document.getElementById('edit-prod-decimales').checked;
   if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
   loading(true, 'Guardando...');
-  await sb.from('productos').update({ nombre, precio, unidad, stock: stockVal === '' ? null : Number(stockVal) }).eq('id', id);
+  await sb.from('productos').update({ nombre, precio, unidad, stock: stockVal === '' ? null : Number(stockVal), permite_decimales: decimales }).eq('id', id);
   loading(false);
   closeModal('modal-editar-prod');
   await renderAdminLista();
@@ -1197,7 +1152,8 @@ async function agregarProducto() {
   const precio = Number(document.getElementById('a-prod-precio').value) || 0;
   const unidad = document.getElementById('a-prod-unidad').value;
   const stockVal = document.getElementById('a-prod-stock').value;
-  if (!nombre || precio <= 0) { notif('Completá nombre y precio'); return; }
+  const decimales = document.getElementById('a-prod-decimales').checked;
+  if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
   loading(true, 'Guardando producto...');
   let lista = (await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single()).data;
   if (!lista) {
@@ -1207,16 +1163,18 @@ async function agregarProducto() {
   await sb.from('productos').insert({
     lista_id: lista.id, nombre, precio, unidad,
     stock: stockVal === '' ? null : Number(stockVal),
-    imagen_base64: pendingImg || null
+    imagen_base64: pendingImg || null,
+    permite_decimales: decimales
   });
   loading(false);
   document.getElementById('a-prod-nombre').value = '';
   document.getElementById('a-prod-precio').value = '';
   document.getElementById('a-prod-stock').value = '';
+  document.getElementById('a-prod-decimales').checked = false;
   pendingImg = null;
   const area = document.getElementById('img-upload-area');
   area.className = 'img-upload-area';
-  area.innerHTML = '<div id="img-placeholder"><div style="font-size:28px;">🖼️</div><p style="font-size:12px;color:var(--text2);margin-top:5px;">Tocá para subir imagen</p></div>';
+  area.innerHTML = '<div id="img-placeholder"><div style="font-size:28px;">🖼️</div><p style="font-size:12px;color:var(--text2);margin-top:5px;">Toca para subir imagen</p></div>';
   document.getElementById('prod-img-input').value = '';
   await renderAdminLista();
   notif('Producto agregado ✓');
@@ -1310,6 +1268,152 @@ async function exportarPedidosExcel() {
   });
   descargarExcel(rows, `pedidos_${semanaActual()}.csv`);
   notif('✓ Archivo descargado');
+}
+
+// ── ADMIN: DASHBOARD ─────────────────────────────
+async function renderDashboard() {
+  const sem = semanaActual();
+  document.getElementById('dash-semana-label').textContent = `Semana ${sem}`;
+  loading(true, 'Cargando dashboard...');
+
+  // Cargar datos en paralelo
+  const [{ data: pedidos }, { data: clientes }, { data: pagos }, { data: pedidosSem }] = await Promise.all([
+    sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido)'),
+    sb.from('profiles').select('*').eq('rol', 'cliente'),
+    sb.from('pagos').select('*'),
+    sb.from('pedidos').select('*,pedido_items(*)').eq('semana', sem)
+  ]);
+
+  loading(false);
+
+  // ── MÉTRICAS SEMANA ACTUAL ──
+  const pedSem = pedidosSem || [];
+  const totalSem = pedSem.reduce((s, p) => s + (p.total || 0), 0);
+  const entregadosSem = pedSem.filter(p => p.entregado).length;
+  const tasaEntrega = pedSem.length > 0 ? Math.round(entregadosSem / pedSem.length * 100) : 0;
+  const totalDeuda = (clientes || []).reduce((s, c) => s + (c.deuda_anterior || 0) + (c.deuda_semana || 0), 0);
+  const clientesConDeuda = (clientes || []).filter(c => (c.deuda_anterior || 0) + (c.deuda_semana || 0) > 0).length;
+
+  // ── PRODUCTOS MÁS PEDIDOS (semana actual) ──
+  const contProd = {};
+  pedSem.forEach(p => (p.pedido_items || []).forEach(i => {
+    if (!contProd[i.nombre]) contProd[i.nombre] = { cantidad: 0, subtotal: 0 };
+    contProd[i.nombre].cantidad += i.cantidad;
+    contProd[i.nombre].subtotal += i.precio * i.cantidad;
+  }));
+  const topProds = Object.entries(contProd).sort((a, b) => b[1].cantidad - a[1].cantidad).slice(0, 5);
+
+  // ── COMPARATIVA ÚLTIMAS 4 SEMANAS ──
+  const todasSemanas = [...new Set((pedidos || []).map(p => p.semana))].sort().slice(-4);
+  const compSemanas = todasSemanas.map(s => ({
+    semana: s,
+    total: (pedidos || []).filter(p => p.semana === s).reduce((sum, p) => sum + (p.total || 0), 0),
+    pedidos: (pedidos || []).filter(p => p.semana === s).length
+  }));
+
+  // ── CLIENTES CON MAYOR DEUDA ──
+  const topDeudores = [...(clientes || [])]
+    .map(c => ({ ...c, deudaTotal: (c.deuda_anterior || 0) + (c.deuda_semana || 0) }))
+    .filter(c => c.deudaTotal > 0)
+    .sort((a, b) => b.deudaTotal - a.deudaTotal)
+    .slice(0, 5);
+
+  // ── PEDIDOS POR UBICACIÓN (semana actual) ──
+  const { data: pedUbic } = await sb.from('pedidos').select('*,profiles(ubicacion,ubicacion_otro)').eq('semana', sem);
+  const contUbic = {};
+  (pedUbic || []).forEach(p => {
+    const u = p.profiles;
+    const loc = u ? (u.ubicacion === 'OTRO' ? (u.ubicacion_otro || 'OTRO') : u.ubicacion) || 'Sin ubicación' : 'Sin ubicación';
+    if (!contUbic[loc]) contUbic[loc] = { pedidos: 0, total: 0 };
+    contUbic[loc].pedidos++;
+    contUbic[loc].total += p.total || 0;
+  });
+
+  // ── RENDER ──
+  const fmtPct = (v) => `${v}%`;
+  const maxComp = Math.max(...compSemanas.map(s => s.total), 1);
+
+  document.getElementById('dash-contenido').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Pedidos semana</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--brown);margin:4px 0;">${pedSem.length}</div>
+      </div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Total facturado</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--brown);margin:4px 0;">${fmt(totalSem)}</div>
+      </div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Tasa de entrega</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:${tasaEntrega>=80?'var(--green)':'var(--red)'};margin:4px 0;">${fmtPct(tasaEntrega)}</div>
+      </div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Deuda total</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:${totalDeuda>0?'var(--red)':'var(--green)'};margin:4px 0;">${fmtUSD(totalDeuda)}</div>
+        <div style="font-size:11px;color:var(--text2);">${clientesConDeuda} cliente${clientesConDeuda!==1?'s':''}</div>
+      </div>
+    </div>
+
+    ${topProds.length > 0 ? `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">📦 Productos más pedidos esta semana</div>
+      ${topProds.map(([nombre, d]) => `
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span style="font-weight:500;">${nombre}</span>
+            <span style="color:var(--text2);">${d.cantidad} uds. · ${fmt(d.subtotal)}</span>
+          </div>
+          <div style="background:var(--cream2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="background:var(--brown3);height:100%;width:${Math.round(d.cantidad/topProds[0][1].cantidad*100)}%;border-radius:4px;"></div>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${compSemanas.length > 0 ? `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">📈 Comparativa de semanas</div>
+      ${compSemanas.map((s, i) => {
+        const prev = compSemanas[i - 1];
+        const diff = prev ? ((s.total - prev.total) / prev.total * 100).toFixed(1) : null;
+        const color = diff === null ? 'var(--text2)' : Number(diff) >= 0 ? 'var(--green)' : 'var(--red)';
+        return `<div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span>${s.semana}</span>
+            <span style="display:flex;gap:8px;align-items:center;">
+              <span style="font-weight:600;">${fmt(s.total)}</span>
+              ${diff !== null ? `<span style="font-size:11px;color:${color};">${Number(diff)>=0?'+':''}${diff}%</span>` : ''}
+            </span>
+          </div>
+          <div style="background:var(--cream2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="background:var(--brown);height:100%;width:${Math.round(s.total/maxComp*100)}%;border-radius:4px;"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    ${topDeudores.length > 0 ? `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">⚠️ Clientes con mayor deuda</div>
+      ${topDeudores.map(c => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span>${c.apellido} ${c.nombre}</span>
+          <span style="font-weight:700;color:var(--red);">${fmtUSD(c.deudaTotal)}</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${Object.keys(contUbic).length > 0 ? `
+    <div class="card">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">📍 Pedidos por ubicación</div>
+      ${Object.entries(contUbic).sort((a,b)=>b[1].pedidos-a[1].pedidos).map(([loc, d]) => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span style="font-weight:500;">${loc}</span>
+          <span style="display:flex;gap:12px;">
+            <span style="color:var(--text2);">${d.pedidos} pedido${d.pedidos!==1?'s':''}</span>
+            <span style="font-weight:600;">${fmt(d.total)}</span>
+          </span>
+        </div>`).join('')}
+    </div>` : ''}
+  `;
 }
 
 // ── ADMIN: POR UBICACIÓN ──────────────────────────
