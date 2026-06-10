@@ -433,10 +433,10 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   </div>
   <div class="main" id="atab-clientes" style="display:none">
     <div class="section-title">Clientes</div>
-    <div class="section-sub">Gestión de cuentas y deudas</div>
+    <div class="section-sub">Gestión de cuentas y deudas — ordenados alfabéticamente</div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Aut. deuda</th><th></th></tr></thead>
         <tbody id="a-clientes-tbody"></tbody>
       </table>
     </div>
@@ -504,6 +504,29 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-abonar')">Cancelar</button>
       <button class="btn btn-green" onclick="confirmarAbono()">Abonar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PRODUCTO -->
+<div class="modal-overlay" id="modal-editar-prod">
+  <div class="modal-box">
+    <div class="modal-title">Editar producto</div>
+    <div class="modal-sub">Modifica los datos del producto</div>
+    <input type="hidden" id="edit-prod-id"/>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre</label><input type="text" id="edit-prod-nombre"/></div>
+      <div class="form-group"><label>Precio ($)</label><input type="number" id="edit-prod-precio"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Unidad</label>
+        <select id="edit-prod-unidad"><option>500g</option><option>1kg</option><option>250g</option><option>litro</option><option>unidad</option><option>paquete</option></select>
+      </div>
+      <div class="form-group"><label>Stock (vacío = sin límite)</label><input type="number" id="edit-prod-stock" placeholder="Sin límite"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-editar-prod')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicionProducto()">Guardar</button>
     </div>
   </div>
 </div>
@@ -739,14 +762,30 @@ async function renderClienteInicio() {
 async function renderClienteTienda() {
   document.getElementById('c-lista-semana-label').textContent = `Semana ${semanaActual()}`;
   const el = document.getElementById('c-productos-grid');
+
+  // Validar deuda anterior
+  const u = await sincronizarDeuda(currentUser.id);
+  if (u && (u.deuda_anterior || 0) > 0 && !u.autorizado_con_deuda) {
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <div class="icon">🔒</div>
+      <p style="font-weight:600;color:var(--red);margin-bottom:6px;">No puedes hacer pedidos</p>
+      <p>Tienes una deuda pendiente de semanas anteriores de <strong>${fmtUSD(u.deuda_anterior)}</strong>.<br>Contáctate con el administrador para regularizar tu cuenta.</p>
+    </div>`;
+    return;
+  }
+
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
   if (!lista || !lista.publicada) {
-    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay lista publicada esta semana.<br>¡Volvé pronto!</p></div>';
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay lista publicada esta semana.<br>¡Vuelve pronto!</p></div>';
     return;
   }
   listaActual = lista;
-  const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id);
+  const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id).eq('activo', true);
   productosActuales = prods || [];
+  if (productosActuales.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay productos disponibles esta semana.</p></div>';
+    return;
+  }
   el.innerHTML = productosActuales.map(p => {
     const agotado = p.stock !== null && p.stock !== undefined && Number(p.stock) <= 0;
     const qty = carrito[p.id] || 0;
@@ -1082,25 +1121,67 @@ function handleProdImg(input) {
 
 async function renderAdminLista() {
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
-  const { data: prods } = lista ? await sb.from('productos').select('*').eq('lista_id', lista.id) : { data: [] };
+  const { data: prods } = lista ? await sb.from('productos').select('*').eq('lista_id', lista.id).order('nombre') : { data: [] };
   productosActuales = prods || [];
   const el = document.getElementById('a-productos-lista');
   if (productosActuales.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>Agregá productos a la lista</p></div>'; return;
+    el.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>Agrega productos a la lista</p></div>'; return;
   }
   el.innerHTML = productosActuales.map(p => {
     const imgEl = p.imagen_base64
       ? `<img class="prod-list-img" src="${p.imagen_base64}" style="display:block;" alt="${p.nombre}"/>`
       : `<div class="prod-list-img">${prodEmoji(p.nombre)}</div>`;
-    return `<div class="prod-list-item">
+    const stockText = p.stock !== null && p.stock !== undefined ? `📦 Stock: <strong>${p.stock}</strong>` : 'Sin límite';
+    const activoColor = p.activo ? 'var(--green)' : 'var(--text3)';
+    const activoLabel = p.activo ? '✓ Activo' : '✗ Inactivo';
+    return `<div class="prod-list-item" style="opacity:${p.activo ? '1' : '0.55'};">
       ${imgEl}
       <div class="prod-list-info">
         <div class="prod-list-name">${p.nombre}</div>
-        <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${p.stock !== null && p.stock !== undefined ? 'Stock: ' + p.stock : 'Sin límite'}</div>
+        <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${stockText}</div>
+        <div style="font-size:11px;color:${activoColor};margin-top:2px;font-weight:600;">${activoLabel}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${p.id}')">Eliminar</button>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+        <button class="btn btn-outline btn-sm" onclick="abrirEditarProducto('${p.id}')">✏️ Editar</button>
+        <button class="btn btn-sm" style="background:${p.activo ? '#FEF3C7' : 'var(--green3)'};color:${p.activo ? '#92400E' : 'var(--green)'};" onclick="toggleActivoProducto('${p.id}',${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${p.id}')">🗑</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+function abrirEditarProducto(id) {
+  const p = productosActuales.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('edit-prod-id').value = p.id;
+  document.getElementById('edit-prod-nombre').value = p.nombre;
+  document.getElementById('edit-prod-precio').value = p.precio;
+  document.getElementById('edit-prod-unidad').value = p.unidad;
+  document.getElementById('edit-prod-stock').value = p.stock !== null && p.stock !== undefined ? p.stock : '';
+  document.getElementById('modal-editar-prod').classList.add('active');
+}
+
+async function guardarEdicionProducto() {
+  const id = document.getElementById('edit-prod-id').value;
+  const nombre = document.getElementById('edit-prod-nombre').value.trim();
+  const precio = Number(document.getElementById('edit-prod-precio').value) || 0;
+  const unidad = document.getElementById('edit-prod-unidad').value;
+  const stockVal = document.getElementById('edit-prod-stock').value;
+  if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
+  loading(true, 'Guardando...');
+  await sb.from('productos').update({ nombre, precio, unidad, stock: stockVal === '' ? null : Number(stockVal) }).eq('id', id);
+  loading(false);
+  closeModal('modal-editar-prod');
+  await renderAdminLista();
+  notif('✓ Producto actualizado');
+}
+
+async function toggleActivoProducto(id, activo) {
+  loading(true, activo ? 'Desactivando...' : 'Activando...');
+  await sb.from('productos').update({ activo: !activo }).eq('id', id);
+  loading(false);
+  await renderAdminLista();
+  notif(activo ? 'Producto desactivado' : '✓ Producto activado');
 }
 
 async function agregarProducto() {
@@ -1168,36 +1249,42 @@ async function renderAdminPedidos() {
   const sem = semanaActual();
   document.getElementById('a-pedidos-semana-sub').textContent = `Semana ${sem}`;
   loading(true, 'Cargando pedidos...');
-  const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)').eq('semana', sem).order('created_at', { ascending: false });
+  const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)').eq('semana', sem);
   loading(false);
   const el = document.getElementById('a-pedidos-list');
   if (!pedidos || pedidos.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No hay pedidos esta semana</p></div>'; return; }
 
-  // Botón exportar Excel
+  // Ordenar por apellido A-Z
+  pedidos.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+
+  window._pedidosData = pedidos;
   const btnExcel = `<button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="exportarPedidosExcel()">📊 Exportar a Excel</button>`;
 
-  el.innerHTML = btnExcel + pedidos.map(p => {
-    const u = p.profiles;
-    const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
-    return `<div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div>
-          <div style="font-weight:700;font-size:15px;">${u ? u.nombre + ' ' + u.apellido : '—'}</div>
-          <div style="font-size:12px;color:var(--text2);">${new Date(p.created_at).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })} · 📍 ${ubicacion}</div>
-        </div>
-        <span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span>
-      </div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">${(p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(' · ')}</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:8px;">${fmt(p.total)}</div>
-      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--text2);margin-bottom:10px;">
-        🏦 ${p.banco || '—'} · 📱 ${p.telefono_pago || '—'} · 📅 ${p.fecha_pago || '—'} ${p.hora_pago || ''}
-      </div>
-      ${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Registrar entrega</button>` : '<span style="font-size:12px;color:var(--green);">✓ Entregado</span>'}
-    </div>`;
-  }).join('');
+  // Tabla
+  const tabla = `<div class="table-wrap" style="margin-top:4px;">
+    <table class="admin-table">
+      <thead><tr><th>Apellido</th><th>Nombre</th><th>Ubicación</th><th>Productos</th><th>Total</th><th>Banco</th><th>Teléfono</th><th>Fecha/Hora</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>${pedidos.map(p => {
+        const u = p.profiles;
+        const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
+        const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+        return `<tr>
+          <td style="font-weight:600;">${u?.apellido || '—'}</td>
+          <td>${u?.nombre || '—'}</td>
+          <td><span style="font-size:11px;">📍 ${ubicacion}</span></td>
+          <td style="font-size:12px;">${prods}</td>
+          <td style="font-weight:700;white-space:nowrap;">${fmt(p.total)}</td>
+          <td style="font-size:12px;">${p.banco || '—'}</td>
+          <td style="font-size:12px;">${p.telefono_pago || '—'}</td>
+          <td style="font-size:11px;white-space:nowrap;">${p.fecha_pago || '—'}<br>${p.hora_pago || ''}</td>
+          <td><span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span></td>
+          <td>${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Entregar</button>` : '<span style="font-size:11px;color:var(--green);">✓</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
 
-  // Guardar datos para exportar
-  window._pedidosData = pedidos;
+  el.innerHTML = btnExcel + tabla;
 }
 
 async function exportarPedidosExcel() {
@@ -1226,16 +1313,20 @@ async function renderAdminClientes() {
   loading(false);
   const tbody = document.getElementById('a-clientes-tbody');
   if (!clientes || clientes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text2);">No hay clientes registrados</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text2);">No hay clientes registrados</td></tr>'; return;
   }
+  // Ordenar por apellido A-Z
+  clientes.sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '', 'es'));
   tbody.innerHTML = clientes.map(u => {
     const total = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
+    const autLabel = u.autorizado_con_deuda ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>';
     return `<tr>
-      <td><div style="font-weight:600;">${u.nombre} ${u.apellido}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
+      <td><div style="font-weight:600;">${u.apellido} ${u.nombre}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
       <td>${u.cedula || '—'}</td>
       <td>${u.telefono || '—'}</td>
       <td style="font-weight:700;">${fmt(total)}</td>
       <td><span class="badge ${total <= 0 ? 'badge-green' : 'badge-amber'}">${total <= 0 ? 'Al día' : 'Con deuda'}</span></td>
+      <td style="text-align:center;">${autLabel}<br><button class="btn btn-sm" style="margin-top:4px;background:${u.autorizado_con_deuda?'var(--red2)':'var(--green3)'};color:${u.autorizado_con_deuda?'var(--red)':'var(--green)'};padding:3px 8px;font-size:11px;" onclick="toggleAutorizacion('${u.id}',${u.autorizado_con_deuda})">${u.autorizado_con_deuda?'Revocar':'Autorizar'}</button></td>
       <td><button class="btn btn-outline btn-sm" onclick="openAbonarModal('${u.id}','${u.nombre} ${u.apellido}',${total})">Abonar</button></td>
     </tr>`;
   }).join('');
@@ -1244,24 +1335,32 @@ async function renderAdminClientes() {
 // ── ADMIN: ENTREGAS ───────────────────────────────
 async function renderAdminEntregas() {
   loading(true, 'Cargando entregas...');
-  const { data: entregas } = await sb.from('entregas').select('*,profiles(nombre,apellido),pedidos(total,pedido_items(*))').order('created_at', { ascending: false });
+  const { data: entregas } = await sb.from('entregas').select('*,profiles(nombre,apellido),pedidos(total,pedido_items(*))');
   loading(false);
   const el = document.getElementById('a-entregas-list');
   if (!entregas || entregas.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">🚚</div><p>No hay entregas registradas</p></div>'; return; }
-  el.innerHTML = entregas.map(e => {
-    const u = e.profiles;
-    const p = e.pedidos;
-    return `<div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <div style="font-weight:700;">${u ? u.nombre + ' ' + u.apellido : '—'}</div>
-        <span class="badge badge-green">Entregado</span>
-      </div>
-      <div style="font-size:13px;color:var(--text2);">📅 ${e.fecha} · Semana ${e.semana}</div>
-      <div style="font-size:13px;margin-top:5px;">${p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre} x${i.cantidad}`).join(', ') : '—'}</div>
-      ${e.observaciones ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;">📝 ${e.observaciones}</div>` : ''}
-      <div style="margin-top:8px;font-size:13px;color:var(--text2);">Deuda ant.: <strong>${fmt(e.deuda_anterior)}</strong> · Semana: <strong>${fmt(e.deuda_semana)}</strong></div>
-    </div>`;
-  }).join('');
+  // Ordenar por apellido A-Z
+  entregas.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+  el.innerHTML = `<div class="table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Apellido</th><th>Nombre</th><th>Fecha</th><th>Semana</th><th>Productos</th><th>Deuda ant.</th><th>Deuda sem.</th><th>Obs.</th></tr></thead>
+      <tbody>${entregas.map(e => {
+        const u = e.profiles;
+        const p = e.pedidos;
+        const prods = p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre} x${i.cantidad}`).join(', ') : '—';
+        return `<tr>
+          <td style="font-weight:600;">${u?.apellido || '—'}</td>
+          <td>${u?.nombre || '—'}</td>
+          <td style="white-space:nowrap;">${e.fecha}</td>
+          <td style="font-size:12px;">${e.semana}</td>
+          <td style="font-size:12px;">${prods}</td>
+          <td>${fmt(e.deuda_anterior)}</td>
+          <td>${fmt(e.deuda_semana)}</td>
+          <td style="font-size:12px;color:var(--text2);">${e.observaciones || '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
 }
 
 // ── MODALES ───────────────────────────────────────
@@ -1322,6 +1421,14 @@ async function confirmarAbono() {
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+async function toggleAutorizacion(uid, actual) {
+  loading(true, actual ? 'Revocando autorización...' : 'Autorizando...');
+  await sb.from('profiles').update({ autorizado_con_deuda: !actual }).eq('id', uid);
+  loading(false);
+  notif(actual ? 'Autorización revocada' : '✓ Cliente autorizado para pedir con deuda');
+  renderAdminClientes();
+}
 </script>
 </body>
 </html>
