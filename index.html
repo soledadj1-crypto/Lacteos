@@ -934,10 +934,14 @@ function validarDatosBancarios() {
   const tel = document.getElementById('pedido-tel-pago').value.trim();
   const fecha = document.getElementById('pedido-fecha-pago').value;
   const hora = document.getElementById('pedido-hora-pago').value;
+  const monto = Number(document.getElementById('pago-monto-manual').value) || 0;
+  const ref = document.getElementById('pago-desc').value.trim();
   if (!banco) { notif('Ingresa el nombre del banco'); return false; }
   if (!tel) { notif('Ingresa el teléfono de pago'); return false; }
   if (!fecha) { notif('Ingresa la fecha de pago'); return false; }
   if (!hora) { notif('Ingresa la hora de pago'); return false; }
+  if (monto <= 0) { notif('Ingresa un monto válido en Bolívares'); return false; }
+  if (!ref) { notif('Ingresa el número de referencia'); return false; }
   return { banco, tel, fecha, hora };
 }
 
@@ -966,10 +970,9 @@ function previewPago() {
 async function registrarPagoManual() {
   const datos = validarDatosBancarios();
   if (!datos) return;
-  const bs = Number(document.getElementById('pago-monto-manual').value) || 0;
-  const desc = document.getElementById('pago-desc').value.trim() || 'Pago manual';
-  if (bs <= 0) { notif('Ingresa un monto válido'); return; }
   if (tasaCambioActual <= 0) { notif('La tasa de cambio no está configurada. Contacta al administrador.'); return; }
+  const bs = Number(document.getElementById('pago-monto-manual').value);
+  const desc = document.getElementById('pago-desc').value.trim();
   const dolares = bsADolares(bs);
   await aplicarPago(dolares, `${desc} · Bs. ${bs.toLocaleString('es-CO')}`, datos);
 }
