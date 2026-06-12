@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Venta de Quesos y Algo Más</title>
+<title>Quesos y Algo Más</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Nunito:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -210,7 +210,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   <div class="login-box">
     <div class="login-logo">
       <div class="login-emoji">🧀</div>
-      <h1>Venta de Quesos<br>y Algo Más</h1>
+      <h1>Quesos<br>y Algo Más</h1>
       <p>Productos frescos cada semana</p>
     </div>
     <div class="login-tabs">
@@ -229,7 +229,26 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
         <div class="form-group"><label>Nombre</label><input type="text" id="r-nombre" placeholder="Tu nombre"/></div>
         <div class="form-group"><label>Apellido</label><input type="text" id="r-apellido" placeholder="Apellido"/></div>
       </div>
-      <div class="form-group"><label>Teléfono</label><input type="tel" id="r-tel" placeholder="3001234567"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Cédula</label><input type="text" id="r-cedula" placeholder="123456789"/></div>
+        <div class="form-group"><label>Teléfono</label><input type="tel" id="r-tel" placeholder="3001234567"/></div>
+      </div>
+      <div class="form-group">
+        <label>Ubicación de despacho</label>
+        <select id="r-ubicacion" onchange="toggleUbicacionOtro()">
+          <option value="">-- Selecciona tu ubicación --</option>
+          <option value="CANTV">CANTV</option>
+          <option value="PDVSA">PDVSA</option>
+          <option value="TORRE SUR">TORRE SUR</option>
+          <option value="EMPRESARIAL">EMPRESARIAL</option>
+          <option value="EL RECREO">EL RECREO</option>
+          <option value="OTRO">OTRO</option>
+        </select>
+      </div>
+      <div class="form-group" id="r-ubicacion-otro-wrap" style="display:none">
+        <label>Especifica tu ubicación</label>
+        <input type="text" id="r-ubicacion-otro" placeholder="Escribe tu ubicación"/>
+      </div>
       <div class="form-group"><label>Usuario</label><input type="text" id="r-user" placeholder="Elige un usuario único"/></div>
       <div class="form-group"><label>Contraseña</label><input type="password" id="r-pass" placeholder="Mínimo 6 caracteres"/></div>
       <button class="btn btn-primary btn-full" onclick="doRegister()">Crear cuenta</button>
@@ -240,7 +259,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
 <!-- CLIENTE -->
 <div id="screen-cliente" class="screen">
   <div class="topbar">
-    <div class="topbar-logo">🧀<div>Venta de Quesos<small>y Algo Más</small></div></div>
+    <div class="topbar-logo">🧀<div>Quesos<small>y Algo Más</small></div></div>
     <div class="topbar-right">
       <span class="user-chip" id="cliente-name-chip"></span>
       <button class="cart-btn" onclick="openCart()">🛒<span class="cart-badge" id="cart-badge" style="display:none">0</span></button>
@@ -265,7 +284,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     </div>
     <div class="card">
       <div class="card-title">Bienvenido/a 👋</div>
-      <div class="card-sub">Revisá la lista semanal y hacé tu pedido desde la Tienda.</div>
+      <div class="card-sub">Revisa la lista semanal y realiza tu pedido desde la Tienda.</div>
       <div id="c-lista-estado"></div>
     </div>
     <div id="c-ultimo-pedido-card" style="display:none">
@@ -279,32 +298,69 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   </div>
   <div class="main" id="ctab-pagar" style="display:none">
     <div class="section-title">Registrar pago</div>
-    <div class="section-sub">Subí tu comprobante o ingresá los datos manualmente</div>
-    <div class="card">
-      <div class="card-title" style="font-size:16px;">📎 Subir comprobante</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">La IA extrae automáticamente los datos</p>
-      <div class="upload-area" id="upload-area" onclick="document.getElementById('comp-file').click()">
-        <div style="font-size:32px;">📎</div>
-        <p style="font-size:13px;color:var(--text2);margin-top:6px;">Tocá para subir imagen o PDF</p>
+    <div class="section-sub">Completa los siguientes datos</div>
+
+    <!-- TASA DE CAMBIO VISIBLE -->
+    <div style="background:linear-gradient(135deg,var(--brown) 0%,var(--brown2) 100%);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;">Tasa de cambio vigente</div>
+        <div style="font-family:'Playfair Display',serif;font-size:26px;color:white;margin-top:2px;" id="c-tasa-display">—</div>
       </div>
-      <input type="file" id="comp-file" accept="image/*,application/pdf" style="display:none" onchange="handleCompFile(this)"/>
-      <button class="btn btn-primary btn-full" style="margin-top:12px;" onclick="procesarComprobante()" id="btn-procesar-comp" disabled>Procesar con IA</button>
-      <div class="pago-ai-result" id="pago-ai-result">
-        <div style="font-weight:700;margin-bottom:8px;color:var(--green);">✓ Pago detectado</div>
-        <div style="display:flex;justify-content:space-between;"><span>Monto</span><span id="ai-monto" style="font-weight:700;"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Referencia</span><span id="ai-ref" style="color:var(--text2);"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Fecha</span><span id="ai-fecha" style="color:var(--text2);"></span></div>
+      <div style="font-size:28px;">💱</div>
+    </div>
+
+    <!-- DATOS DE PAGO MÓVIL -->
+    <div style="background:var(--green3);border:1px solid var(--green2);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">📱 Datos para pago móvil</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--green);opacity:.8;">Banco</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Banplus (0174)</div>
+          </div>
+          <button onclick="copiarDato('Banplus (0174)','Banco')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--green);opacity:.8;">Teléfono</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">04164355-2079</div>
+          </div>
+          <button onclick="copiarDato('04164355-2079','Teléfono')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--green);opacity:.8;">C.I.</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">11.925.538</div>
+          </div>
+          <button onclick="copiarDato('11925538','C.I.')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
+        </div>
       </div>
     </div>
-    <div class="divider"></div>
+
     <div class="card">
-      <div class="card-title" style="font-size:16px;">✏️ Ingresar manualmente</div>
-      <div class="form-group" style="margin-top:10px;"><label>Monto (COP $)</label><input type="number" id="pago-monto-manual" placeholder="0" oninput="previewPago()"/></div>
+      <div class="form-group"><label>Banco</label><input type="text" id="pedido-banco" placeholder="Ej: Banesco, Mercantil, Venezuela..."/></div>
+      <div class="form-group"><label>Teléfono de pago</label><input type="tel" id="pedido-tel-pago" placeholder="04141234567"/></div>
+      <div class="form-row">
+        <div class="form-group"><label>Fecha de pago</label><input type="date" id="pedido-fecha-pago"/></div>
+        <div class="form-group"><label>Hora de pago</label><input type="time" id="pedido-hora-pago"/></div>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group">
+        <label>Monto en Bolívares (Bs.)</label>
+        <input type="number" id="pago-monto-manual" placeholder="0" oninput="previewPago()"/>
+      </div>
+      <div id="pago-conversion" style="display:none;background:var(--cream2);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;">
+          <span style="color:var(--text2);">Equivalente en USD</span>
+          <span id="conv-dolares" style="font-family:'Playfair Display',serif;font-size:18px;color:var(--brown);font-weight:700;"></span>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Tasa: <span id="conv-tasa"></span> Bs. por USD</div>
+      </div>
       <div class="form-group"><label>Referencia</label><input type="text" id="pago-desc" placeholder="Ej: Transferencia Nequi 12345"/></div>
       <button class="btn btn-green btn-full" onclick="registrarPagoManual()">Registrar pago</button>
       <div class="pago-preview" id="pago-preview">
         <div style="display:flex;justify-content:space-between;"><span>Deuda actual</span><span id="prev-deuda"></span></div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Pago</span><span id="prev-pago" style="color:var(--green);"></span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>Pago (USD)</span><span id="prev-pago" style="color:var(--green);"></span></div>
         <div style="display:flex;justify-content:space-between;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;font-weight:700;"><span>Nueva deuda</span><span id="prev-nueva"></span></div>
       </div>
     </div>
@@ -319,7 +375,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
 <!-- ADMIN -->
 <div id="screen-admin" class="screen">
   <div class="topbar">
-    <div class="topbar-logo">🧀<div>Admin Panel<small>Venta de Quesos y Algo Más</small></div></div>
+    <div class="topbar-logo">🧀<div>Admin Panel<small>Quesos y Algo Más</small></div></div>
     <div class="topbar-right">
       <span class="user-chip">Administrador</span>
       <button class="btn-logout" onclick="logout()">Salir</button>
@@ -330,6 +386,9 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="tab" onclick="adminTab('pedidos')">Pedidos</div>
     <div class="tab" onclick="adminTab('clientes')">Clientes</div>
     <div class="tab" onclick="adminTab('entregas')">Entregas</div>
+    <div class="tab" onclick="adminTab('ubicacion')">Por Ubicación</div>
+    <div class="tab" onclick="adminTab('dashboard')">Dashboard</div>
+    <div class="tab" onclick="adminTab('config')">Config</div>
   </div>
   <div class="main" id="atab-lista">
     <div class="section-title">Lista semanal</div>
@@ -345,6 +404,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
           <select id="a-prod-unidad"><option>500g</option><option>1kg</option><option>250g</option><option>litro</option><option>unidad</option><option>paquete</option></select>
         </div>
         <div class="form-group"><label>Stock (vacío = sin límite)</label><input type="number" id="a-prod-stock" placeholder="Sin límite"/></div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--cream2);padding:12px;border-radius:var(--radius-sm);">
+        <input type="checkbox" id="a-prod-decimales" style="width:18px;height:18px;cursor:pointer;accent-color:var(--brown);"/>
+        <div>
+          <label for="a-prod-decimales" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Permitir cantidades decimales</label>
+          <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente podrá pedir 0.5, 1.5, etc.</p>
+        </div>
       </div>
       <div class="form-group">
         <label>Imagen de referencia</label>
@@ -375,10 +441,10 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   </div>
   <div class="main" id="atab-clientes" style="display:none">
     <div class="section-title">Clientes</div>
-    <div class="section-sub">Gestión de cuentas y deudas</div>
+    <div class="section-sub">Gestión de cuentas y deudas — ordenados alfabéticamente</div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Cliente</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Aut. deuda</th><th>Contraseña</th><th></th></tr></thead>
         <tbody id="a-clientes-tbody"></tbody>
       </table>
     </div>
@@ -387,6 +453,32 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-title">Registro de entregas</div>
     <div class="section-sub">Historial de entregas realizadas</div>
     <div id="a-entregas-list"></div>
+  </div>
+  <div class="main" id="atab-dashboard" style="display:none">
+    <div class="section-title">Dashboard</div>
+    <div class="section-sub" id="dash-semana-label">Semana actual</div>
+    <div id="dash-contenido"><div class="empty-state"><div class="icon">📊</div><p>Cargando datos...</p></div></div>
+  </div>
+
+  <div class="main" id="atab-ubicacion" style="display:none">
+    <div class="section-title">Pedidos por Ubicación</div>
+    <div class="section-sub">Selecciona una ubicación para ver los pedidos y totales de productos</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;" id="ub-filtros"></div>
+    <div id="ub-contenido"></div>
+  </div>
+
+  <div class="main" id="atab-config" style="display:none">
+    <div class="section-title">Configuración</div>    <div class="section-sub">Parámetros generales del sistema</div>
+    <div class="card">
+      <div class="card-title" style="font-size:16px;">💱 Tasa de cambio</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Esta tasa se usará al registrar pagos de clientes y quedará almacenada en cada transacción.</p>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13px;color:var(--text2);">Tasa actual</span>
+        <span style="font-family:'Playfair Display',serif;font-size:22px;color:var(--brown);font-weight:600;" id="tasa-actual-display">Cargando...</span>
+      </div>
+      <div class="form-group"><label>Nueva tasa de cambio</label><input type="number" id="nueva-tasa" placeholder="Ej: 4200" step="0.01"/></div>
+      <button class="btn btn-primary" onclick="guardarTasa()">Guardar tasa</button>
+    </div>
   </div>
 </div>
 
@@ -422,6 +514,22 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   </div>
 </div>
 
+<!-- MODAL RESET CONTRASEÑA -->
+<div class="modal-overlay" id="modal-reset-pass">
+  <div class="modal-box">
+    <div class="modal-title">Resetear contraseña</div>
+    <div class="modal-sub" id="modal-reset-sub"></div>
+    <div class="form-group">
+      <label>Nueva contraseña</label>
+      <input type="text" id="reset-nueva-pass" placeholder="Mínimo 6 caracteres"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-reset-pass')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarResetPass()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ABONAR -->
 <div class="modal-overlay" id="modal-abonar">
   <div class="modal-box">
@@ -432,6 +540,36 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-abonar')">Cancelar</button>
       <button class="btn btn-green" onclick="confirmarAbono()">Abonar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PRODUCTO -->
+<div class="modal-overlay" id="modal-editar-prod">
+  <div class="modal-box">
+    <div class="modal-title">Editar producto</div>
+    <div class="modal-sub">Modifica los datos del producto</div>
+    <input type="hidden" id="edit-prod-id"/>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre</label><input type="text" id="edit-prod-nombre"/></div>
+      <div class="form-group"><label>Precio ($)</label><input type="number" id="edit-prod-precio"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Unidad</label>
+        <select id="edit-prod-unidad"><option>500g</option><option>1kg</option><option>250g</option><option>litro</option><option>unidad</option><option>paquete</option></select>
+      </div>
+      <div class="form-group"><label>Stock (vacío = sin límite)</label><input type="number" id="edit-prod-stock" placeholder="Sin límite"/></div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--cream2);padding:12px;border-radius:var(--radius-sm);">
+      <input type="checkbox" id="edit-prod-decimales" style="width:18px;height:18px;cursor:pointer;accent-color:var(--brown);"/>
+      <div>
+        <label for="edit-prod-decimales" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Permitir cantidades decimales</label>
+        <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente podrá pedir 0.5, 1.5, etc.</p>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-editar-prod')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarEdicionProducto()">Guardar</button>
     </div>
   </div>
 </div>
@@ -453,6 +591,7 @@ let abonarTarget = null;
 let compFileData = null;
 let listaActual = null;
 let productosActuales = [];
+let tasaCambioActual = 0;
 
 // ── HELPERS ───────────────────────────────────────
 function semanaActual() {
@@ -474,6 +613,34 @@ function loading(show, txt = 'Cargando...') {
   document.getElementById('loading-text').textContent = txt;
   el.classList.toggle('active', show);
 }
+
+async function cargarTasa() {
+  const { data } = await sb.from('configuracion').select('tasa_cambio').eq('id', 'global').single();
+  if (data) tasaCambioActual = data.tasa_cambio || 0;
+}
+
+async function guardarTasa() {
+  const nueva = Number(document.getElementById('nueva-tasa').value) || 0;
+  if (nueva <= 0) { notif('Ingresá una tasa válida'); return; }
+  loading(true, 'Guardando tasa...');
+  await sb.from('configuracion').update({ tasa_cambio: nueva, updated_at: new Date().toISOString() }).eq('id', 'global');
+  tasaCambioActual = nueva;
+  loading(false);
+  document.getElementById('tasa-actual-display').textContent = nueva.toLocaleString('es-CO');
+  document.getElementById('nueva-tasa').value = '';
+  notif('✓ Tasa de cambio actualizada: ' + nueva.toLocaleString('es-CO'));
+}
+
+async function renderAdminConfig() {
+  const { data } = await sb.from('configuracion').select('tasa_cambio').eq('id', 'global').single();
+  const tasa = data ? data.tasa_cambio || 0 : 0;
+  tasaCambioActual = tasa;
+  document.getElementById('tasa-actual-display').textContent = tasa > 0 ? tasa.toLocaleString('es-CO') : 'No configurada';
+}
+function copiarDato(valor, label) {
+  navigator.clipboard.writeText(valor).then(() => notif(`✓ ${label} copiado`));
+}
+
 function notif(msg) {
   const el = document.getElementById('notif');
   el.textContent = msg; el.classList.add('show');
@@ -520,23 +687,34 @@ async function doLogin() {
 async function doRegister() {
   const nombre = document.getElementById('r-nombre').value.trim();
   const apellido = document.getElementById('r-apellido').value.trim();
+  const cedula = document.getElementById('r-cedula').value.trim();
   const tel = document.getElementById('r-tel').value.trim();
+  const ubicacion = document.getElementById('r-ubicacion').value;
+  const ubicacionOtro = document.getElementById('r-ubicacion-otro').value.trim();
   const username = document.getElementById('r-user').value.trim();
   const pass = document.getElementById('r-pass').value;
-  if (!nombre || !username || !pass) { showErr('Completá los campos obligatorios'); return; }
+  if (!nombre || !username || !pass) { showErr('Completa los campos obligatorios'); return; }
+  if (!ubicacion) { showErr('Selecciona tu ubicación de despacho'); return; }
+  if (ubicacion === 'OTRO' && !ubicacionOtro) { showErr('Especifica tu ubicación'); return; }
   if (pass.length < 6) { showErr('La contraseña debe tener al menos 6 caracteres'); return; }
   loading(true, 'Creando cuenta...');
   const { data: exists } = await sb.from('profiles').select('id').eq('username', username).single();
   if (exists) { loading(false); showErr('Ese usuario ya existe'); return; }
   const sem = semanaActual();
   const { data, error } = await sb.from('profiles').insert({
-    username, password_hash: pass, nombre, apellido, tel,
+    username, password_hash: pass, nombre, apellido, cedula, telefono: tel,
+    ubicacion, ubicacion_otro: ubicacionOtro,
     rol: 'cliente', deuda_anterior: 0, deuda_semana: 0, semana_deuda: sem
   }).select().single();
   loading(false);
   if (error) { showErr('Error al crear cuenta: ' + error.message); return; }
   currentUser = data;
   await showCliente();
+}
+
+function toggleUbicacionOtro() {
+  const val = document.getElementById('r-ubicacion').value;
+  document.getElementById('r-ubicacion-otro-wrap').style.display = val === 'OTRO' ? 'block' : 'none';
 }
 
 async function logout() {
@@ -548,12 +726,14 @@ async function logout() {
 
 // ── NAVEGACIÓN ────────────────────────────────────
 async function showAdmin() {
+  await cargarTasa();
   showScreen('screen-admin');
   adminTab('lista');
   await renderAdminLista();
 }
 
 async function showCliente() {
+  await cargarTasa();
   showScreen('screen-cliente');
   document.getElementById('cliente-name-chip').textContent = currentUser.nombre;
   carrito = {}; updateCartBadge();
@@ -573,15 +753,18 @@ function clienteTab(t) {
 }
 
 function adminTab(t) {
-  ['lista', 'pedidos', 'clientes', 'entregas'].forEach(x => {
+  ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'dashboard', 'config'].forEach(x => {
     const el = document.getElementById('atab-' + x);
     if (el) el.style.display = x === t ? 'block' : 'none';
   });
   document.querySelectorAll('#screen-admin .tab').forEach((el, i) =>
-    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas'][i] === t));
+    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'dashboard', 'config'][i] === t));
   if (t === 'pedidos') renderAdminPedidos();
   if (t === 'clientes') renderAdminClientes();
   if (t === 'entregas') renderAdminEntregas();
+  if (t === 'ubicacion') renderAdminUbicacion();
+  if (t === 'dashboard') renderDashboard();
+  if (t === 'config') renderAdminConfig();
 }
 
 // ── DEUDA ─────────────────────────────────────────
@@ -628,14 +811,30 @@ async function renderClienteInicio() {
 async function renderClienteTienda() {
   document.getElementById('c-lista-semana-label').textContent = `Semana ${semanaActual()}`;
   const el = document.getElementById('c-productos-grid');
+
+  // Validar deuda anterior
+  const u = await sincronizarDeuda(currentUser.id);
+  if (u && (u.deuda_anterior || 0) > 0 && !u.autorizado_con_deuda) {
+    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <div class="icon">🔒</div>
+      <p style="font-weight:600;color:var(--red);margin-bottom:6px;">No puedes hacer pedidos</p>
+      <p>Tienes una deuda pendiente de semanas anteriores de <strong>${fmtUSD(u.deuda_anterior)}</strong>.<br>Contáctate con el administrador para regularizar tu cuenta.</p>
+    </div>`;
+    return;
+  }
+
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
   if (!lista || !lista.publicada) {
-    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay lista publicada esta semana.<br>¡Volvé pronto!</p></div>';
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay lista publicada esta semana.<br>¡Vuelve pronto!</p></div>';
     return;
   }
   listaActual = lista;
-  const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id);
+  const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id).eq('activo', true);
   productosActuales = prods || [];
+  if (productosActuales.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay productos disponibles esta semana.</p></div>';
+    return;
+  }
   el.innerHTML = productosActuales.map(p => {
     const agotado = p.stock !== null && p.stock !== undefined && Number(p.stock) <= 0;
     const qty = carrito[p.id] || 0;
@@ -649,10 +848,16 @@ async function renderClienteTienda() {
         <div class="prod-card-price">${fmt(p.precio)} / ${p.unidad}</div>
         <div style="font-size:11px;min-height:14px;">${p.stock !== null && p.stock !== undefined ? `<span style="color:${agotado ? 'var(--red)' : 'var(--green)'};">${agotado ? 'Sin stock' : '📦 ' + p.stock + ' disp.'}</span>` : ''}</div>
         <div class="prod-card-qty">
-          <button class="qty-btn" onclick="cambiarCarrito('${p.id}',-1)" ${qty === 0 ? 'disabled' : ''}>−</button>
-          <span class="qty-num" id="cqty-${p.id}">${qty}</span>
-          <button class="qty-btn" onclick="cambiarCarrito('${p.id}',1)" ${agotado ? 'disabled' : ''}>+</button>
+          ${p.permite_decimales
+            ? `<button class="qty-btn" onclick="cambiarCarrito('${p.id}',-0.5)" ${(carrito[p.id]||0)===0?'disabled':''}>−</button>
+               <span class="qty-num" id="cqty-${p.id}">${carrito[p.id]||0}</span>
+               <button class="qty-btn" onclick="cambiarCarrito('${p.id}',0.5)" ${agotado?'disabled':''}>+</button>`
+            : `<button class="qty-btn" onclick="cambiarCarrito('${p.id}',-1)" ${(carrito[p.id]||0)===0?'disabled':''}>−</button>
+               <span class="qty-num" id="cqty-${p.id}">${carrito[p.id]||0}</span>
+               <button class="qty-btn" onclick="cambiarCarrito('${p.id}',1)" ${agotado?'disabled':''}>+</button>`
+          }
         </div>
+        ${p.permite_decimales ? `<div style="font-size:10px;color:var(--text3);text-align:center;margin-top:3px;">incrementos de 0.5</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -737,16 +942,15 @@ async function confirmarPedido() {
   const { data: pedido, error: pe } = await sb.from('pedidos').insert({
     cliente_id: currentUser.id, semana: semanaActual(), total, entregado: false
   }).select().single();
-  if (pe) { loading(false); notif('Error al guardar pedido'); return; }
-  await sb.from('pedido_items').insert(items.map(i => ({
+  if (pe) { loading(false); notif('Error al guardar pedido: ' + pe.message); return; }
+  const { error: ie } = await sb.from('pedido_items').insert(items.map(i => ({
     pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, imagen_base64: i.imagen_base64
   })));
-  // Actualizar deuda
+  if (ie) { loading(false); notif('Error al guardar productos: ' + ie.message); return; }
   const u = await sincronizarDeuda(currentUser.id);
   const nuevaDeudaSem = (u.deuda_semana || 0) + total;
   await sb.from('profiles').update({ deuda_semana: nuevaDeudaSem, semana_deuda: semanaActual() }).eq('id', currentUser.id);
   currentUser.deuda_semana = nuevaDeudaSem;
-  // Descontar stock
   for (const item of items) {
     const p = productosActuales.find(x => x.id === item.pid);
     if (p && p.stock !== null && p.stock !== undefined) {
@@ -764,69 +968,72 @@ async function confirmarPedido() {
 function renderClientePagar() {
   document.getElementById('pago-monto-manual').value = '';
   document.getElementById('pago-desc').value = '';
+  document.getElementById('pedido-banco').value = '';
+  document.getElementById('pedido-tel-pago').value = '';
+  document.getElementById('pedido-fecha-pago').value = '';
+  document.getElementById('pedido-hora-pago').value = '';
   document.getElementById('pago-preview').style.display = 'none';
-  document.getElementById('pago-ai-result').style.display = 'none';
-  document.getElementById('upload-area').className = 'upload-area';
-  document.getElementById('upload-area').innerHTML = '<div style="font-size:32px;">📎</div><p style="font-size:13px;color:var(--text2);margin-top:6px;">Tocá para subir imagen o PDF</p>';
-  document.getElementById('btn-procesar-comp').disabled = true;
-  compFileData = null;
+  document.getElementById('pago-conversion').style.display = 'none';
+  document.getElementById('c-tasa-display').textContent = tasaCambioActual > 0 ? tasaCambioActual.toLocaleString('es-CO') + ' Bs./$' : 'No configurada';
 }
 
-function previewPago() {
+function validarDatosBancarios() {
+  const banco = document.getElementById('pedido-banco').value.trim();
+  const tel = document.getElementById('pedido-tel-pago').value.trim();
+  const fecha = document.getElementById('pedido-fecha-pago').value;
+  const hora = document.getElementById('pedido-hora-pago').value;
   const monto = Number(document.getElementById('pago-monto-manual').value) || 0;
-  if (monto <= 0) { document.getElementById('pago-preview').style.display = 'none'; return; }
+  const ref = document.getElementById('pago-desc').value.trim();
+  if (!banco) { notif('Ingresa el nombre del banco'); return false; }
+  if (!tel) { notif('Ingresa el teléfono de pago'); return false; }
+  if (!fecha) { notif('Ingresa la fecha de pago'); return false; }
+  if (!hora) { notif('Ingresa la hora de pago'); return false; }
+  if (monto <= 0) { notif('Ingresa un monto válido en Bolívares'); return false; }
+  if (!ref) { notif('Ingresa el número de referencia'); return false; }
+  return { banco, tel, fecha, hora };
+}
+
+function fmtUSD(n) { return '$ ' + Number(n || 0).toFixed(2) + ' USD'; }
+function bsADolares(bs) { return tasaCambioActual > 0 ? bs / tasaCambioActual : 0; }
+
+function previewPago() {
+  const bs = Number(document.getElementById('pago-monto-manual').value) || 0;
+  const convEl = document.getElementById('pago-conversion');
+  if (bs <= 0) {
+    convEl.style.display = 'none';
+    document.getElementById('pago-preview').style.display = 'none';
+    return;
+  }
+  const dolares = bsADolares(bs);
+  document.getElementById('conv-dolares').textContent = fmtUSD(dolares);
+  document.getElementById('conv-tasa').textContent = tasaCambioActual.toLocaleString('es-CO');
+  convEl.style.display = 'block';
   const total = (currentUser.deuda_anterior || 0) + (currentUser.deuda_semana || 0);
-  document.getElementById('prev-deuda').textContent = fmt(total);
-  document.getElementById('prev-pago').textContent = '- ' + fmt(monto);
-  document.getElementById('prev-nueva').textContent = fmt(Math.max(0, total - monto));
+  document.getElementById('prev-deuda').textContent = fmtUSD(total);
+  document.getElementById('prev-pago').textContent = '- ' + fmtUSD(dolares);
+  document.getElementById('prev-nueva').textContent = fmtUSD(Math.max(0, total - dolares));
   document.getElementById('pago-preview').style.display = 'block';
 }
 
 async function registrarPagoManual() {
-  const monto = Number(document.getElementById('pago-monto-manual').value) || 0;
-  const desc = document.getElementById('pago-desc').value.trim() || 'Pago manual';
-  if (monto <= 0) { notif('Ingresá un monto válido'); return; }
-  await aplicarPago(monto, desc);
+  const datos = validarDatosBancarios();
+  if (!datos) return;
+  if (tasaCambioActual <= 0) { notif('La tasa de cambio no está configurada. Contacta al administrador.'); return; }
+  const bs = Number(document.getElementById('pago-monto-manual').value);
+  const desc = document.getElementById('pago-desc').value.trim();
+  const dolares = bsADolares(bs);
+  await aplicarPago(dolares, `${desc} · Bs. ${bs.toLocaleString('es-CO')}`, datos);
 }
 
-function handleCompFile(input) {
-  const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    compFileData = { name: file.name, type: file.type, data: e.target.result };
-    document.getElementById('upload-area').className = 'upload-area has-file';
-    document.getElementById('upload-area').innerHTML = `<div style="font-size:28px;">✅</div><p style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px;">${file.name}</p>`;
-    document.getElementById('btn-procesar-comp').disabled = false;
-  };
-  reader.readAsDataURL(file);
-}
-
-async function procesarComprobante() {
-  if (!compFileData) return;
-  const btn = document.getElementById('btn-procesar-comp');
-  btn.innerHTML = '<span class="spinner-inline"></span> Analizando...'; btn.disabled = true;
-  try {
-    const isImg = compFileData.type.startsWith('image/');
-    const b64 = compFileData.data.split(',')[1];
-    const content = isImg
-      ? [{ type: 'image', source: { type: 'base64', media_type: compFileData.type, data: b64 } }, { type: 'text', text: 'Analizá este comprobante de pago. Extraé monto, referencia y fecha. Responde SOLO en JSON: {"monto":number,"referencia":"string","fecha":"string"}. Sin texto extra.' }]
-      : [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }, { type: 'text', text: 'Analizá este comprobante de pago. Extraé monto, referencia y fecha. Responde SOLO en JSON: {"monto":number,"referencia":"string","fecha":"string"}. Sin texto extra.' }];
-    const resp = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, messages: [{ role: 'user', content }] }) });
-    const data = await resp.json();
-    const txt = data.content?.map(c => c.text || '').join('').replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(txt);
-    document.getElementById('ai-monto').textContent = fmt(parsed.monto);
-    document.getElementById('ai-ref').textContent = parsed.referencia || '—';
-    document.getElementById('ai-fecha').textContent = parsed.fecha || '—';
-    document.getElementById('pago-ai-result').style.display = 'block';
-    await aplicarPago(parsed.monto, `${parsed.referencia || 'Transferencia'} · ${parsed.fecha || ''}`);
-  } catch (e) { notif('No se pudo leer el comprobante. Intentá manualmente.'); }
-  btn.innerHTML = 'Procesar con IA'; btn.disabled = false;
-}
-
-async function aplicarPago(monto, desc) {
+async function aplicarPago(monto, desc, datosBancarios) {
   loading(true, 'Registrando pago...');
-  await sb.from('pagos').insert({ cliente_id: currentUser.id, monto, descripcion: desc, semana: semanaActual() });
+  const extra = datosBancarios ? {
+    banco: datosBancarios.banco,
+    telefono_pago: datosBancarios.tel,
+    fecha_pago: datosBancarios.fecha,
+    hora_pago: datosBancarios.hora
+  } : {};
+  await sb.from('pagos').insert({ cliente_id: currentUser.id, monto, descripcion: desc, semana: semanaActual(), tasa_cambio: tasaCambioActual, ...extra });
   const u = await sincronizarDeuda(currentUser.id);
   let resta = monto;
   let nuevaSem = u.deuda_semana || 0;
@@ -837,7 +1044,7 @@ async function aplicarPago(monto, desc) {
   currentUser.deuda_semana = Math.max(0, nuevaSem);
   currentUser.deuda_anterior = Math.max(0, nuevaAnt);
   loading(false);
-  notif('✓ Pago registrado: ' + fmt(monto));
+  notif('✓ Pago registrado: ' + fmtUSD(monto));
   clienteTab('inicio');
 }
 
@@ -849,20 +1056,34 @@ async function renderClienteHistorial() {
   loading(false);
   const el = document.getElementById('c-historial-list');
   if ((!pedidos || pedidos.length === 0) && (!pagos || pagos.length === 0)) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No tenés registros aún</p></div>'; return;
+    el.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No tienes registros aún</p></div>'; return;
   }
+  window._historialData = { pedidos: pedidos || [], pagos: pagos || [] };
+  const btnExcel = `<button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="exportarHistorialExcel()">📊 Exportar a Excel</button>`;
   const ev = [
     ...(pedidos || []).map(p => ({ ...p, tipo: 'pedido' })),
-    ...(pagos || []).map(p => ({ ...p, tipo: 'pago', ts: p.created_at }))
+    ...(pagos || []).map(p => ({ ...p, tipo: 'pago' }))
   ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  el.innerHTML = ev.map(e => {
+  el.innerHTML = btnExcel + ev.map(e => {
     if (e.tipo === 'pedido') return `<div class="historial-item">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
-        <div><strong>📦 Pedido</strong><br><span style="font-size:12px;color:var(--text2);">${new Date(e.created_at).toLocaleDateString('es-CO')}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div><strong>📦 Pedido</strong><br><span style="font-size:12px;color:var(--text2);">${new Date(e.created_at).toLocaleDateString('es-CO')} · Semana ${e.semana}</span></div>
         <span class="badge ${e.entregado ? 'badge-green' : 'badge-amber'}">${e.entregado ? 'Entregado' : 'Pendiente'}</span>
       </div>
-      <div style="font-size:13px;color:var(--text2);">${(e.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ')}</div>
-      <div style="font-weight:700;font-size:14px;margin-top:6px;">${fmt(e.total)}</div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;">
+        ${(e.pedido_items || []).map(i => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">
+            <div>
+              <span style="font-weight:600;">${i.nombre}</span>
+              <span style="color:var(--text2);margin-left:6px;">x ${i.cantidad}</span>
+            </div>
+            <span style="font-weight:600;color:var(--brown);">${fmt(i.precio * i.cantidad)}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding-top:8px;font-weight:700;font-size:14px;">
+          <span>Total</span><span style="color:var(--brown);">${fmt(e.total)}</span>
+        </div>
+      </div>
+      ${e.banco ? `<div style="font-size:12px;color:var(--text2);">🏦 ${e.banco} · 📱 ${e.telefono_pago || ''} · 📅 ${e.fecha_pago || ''} ${e.hora_pago || ''}</div>` : ''}
     </div>`;
     return `<div class="historial-item">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;">
@@ -870,8 +1091,33 @@ async function renderClienteHistorial() {
         <span class="badge badge-green">${fmt(e.monto)}</span>
       </div>
       <div style="font-size:13px;color:var(--text2);">${e.descripcion}</div>
+      ${e.tasa_cambio ? `<div style="font-size:11px;color:var(--text3);margin-top:3px;">Tasa: ${e.tasa_cambio.toLocaleString('es-CO')}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+function exportarHistorialExcel() {
+  const { pedidos, pagos } = window._historialData || { pedidos: [], pagos: [] };
+  const rows = [['Tipo', 'Fecha', 'Detalle', 'Monto', 'Banco', 'Teléfono', 'Fecha Pago', 'Hora', 'Estado']];
+  pedidos.forEach(p => {
+    const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    rows.push(['Pedido', new Date(p.created_at).toLocaleDateString('es-CO'), prods, p.total, p.banco || '', p.telefono_pago || '', p.fecha_pago || '', p.hora_pago || '', p.entregado ? 'Entregado' : 'Pendiente']);
+  });
+  pagos.forEach(p => {
+    rows.push(['Pago', new Date(p.created_at).toLocaleDateString('es-CO'), p.descripcion, p.monto, '', '', '', '', '']);
+  });
+  descargarExcel(rows, `historial_${currentUser.username}.csv`);
+  notif('✓ Archivo descargado');
+}
+
+function descargarExcel(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── ADMIN: LISTA ──────────────────────────────────
@@ -889,25 +1135,69 @@ function handleProdImg(input) {
 
 async function renderAdminLista() {
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
-  const { data: prods } = lista ? await sb.from('productos').select('*').eq('lista_id', lista.id) : { data: [] };
+  const { data: prods } = lista ? await sb.from('productos').select('*').eq('lista_id', lista.id).order('nombre') : { data: [] };
   productosActuales = prods || [];
   const el = document.getElementById('a-productos-lista');
   if (productosActuales.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>Agregá productos a la lista</p></div>'; return;
+    el.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>Agrega productos a la lista</p></div>'; return;
   }
   el.innerHTML = productosActuales.map(p => {
     const imgEl = p.imagen_base64
       ? `<img class="prod-list-img" src="${p.imagen_base64}" style="display:block;" alt="${p.nombre}"/>`
       : `<div class="prod-list-img">${prodEmoji(p.nombre)}</div>`;
-    return `<div class="prod-list-item">
+    const stockText = p.stock !== null && p.stock !== undefined ? `📦 Stock: <strong>${p.stock}</strong>` : 'Sin límite';
+    const activoColor = p.activo ? 'var(--green)' : 'var(--text3)';
+    const activoLabel = p.activo ? '✓ Activo' : '✗ Inactivo';
+    return `<div class="prod-list-item" style="opacity:${p.activo ? '1' : '0.55'};">
       ${imgEl}
       <div class="prod-list-info">
         <div class="prod-list-name">${p.nombre}</div>
-        <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${p.stock !== null && p.stock !== undefined ? 'Stock: ' + p.stock : 'Sin límite'}</div>
+        <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${stockText}${p.permite_decimales ? ' · <span style="color:var(--brown2);">½ permitido</span>' : ''}</div>
+        <div style="font-size:11px;color:${activoColor};margin-top:2px;font-weight:600;">${activoLabel}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${p.id}')">Eliminar</button>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+        <button class="btn btn-outline btn-sm" onclick="abrirEditarProducto('${p.id}')">✏️ Editar</button>
+        <button class="btn btn-sm" style="background:${p.activo ? '#FEF3C7' : 'var(--green3)'};color:${p.activo ? '#92400E' : 'var(--green)'};" onclick="toggleActivoProducto('${p.id}',${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${p.id}')">🗑</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+function abrirEditarProducto(id) {
+  const p = productosActuales.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('edit-prod-id').value = p.id;
+  document.getElementById('edit-prod-nombre').value = p.nombre;
+  document.getElementById('edit-prod-precio').value = p.precio;
+  document.getElementById('edit-prod-unidad').value = p.unidad;
+  document.getElementById('edit-prod-stock').value = p.stock !== null && p.stock !== undefined ? p.stock : '';
+  document.getElementById('edit-prod-decimales').checked = p.permite_decimales || false;
+  document.getElementById('modal-editar-prod').classList.add('active');
+}
+
+async function guardarEdicionProducto() {
+  const id = document.getElementById('edit-prod-id').value;
+  const nombre = document.getElementById('edit-prod-nombre').value.trim();
+  const precio = Number(document.getElementById('edit-prod-precio').value) || 0;
+  const unidad = document.getElementById('edit-prod-unidad').value;
+  const stockVal = document.getElementById('edit-prod-stock').value;
+  const decimales = document.getElementById('edit-prod-decimales').checked;
+  if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
+  loading(true, 'Guardando...');
+  await sb.from('productos').update({ nombre, precio, unidad, stock: stockVal === '' ? null : Number(stockVal), permite_decimales: decimales }).eq('id', id);
+  loading(false);
+  closeModal('modal-editar-prod');
+  await renderAdminLista();
+  notif('✓ Producto actualizado');
+}
+
+async function toggleActivoProducto(id, activo) {
+  loading(true, activo ? 'Desactivando...' : 'Activando...');
+  await sb.from('productos').update({ activo: !activo }).eq('id', id);
+  loading(false);
+  await renderAdminLista();
+  notif(activo ? 'Producto desactivado' : '✓ Producto activado');
 }
 
 async function agregarProducto() {
@@ -915,7 +1205,8 @@ async function agregarProducto() {
   const precio = Number(document.getElementById('a-prod-precio').value) || 0;
   const unidad = document.getElementById('a-prod-unidad').value;
   const stockVal = document.getElementById('a-prod-stock').value;
-  if (!nombre || precio <= 0) { notif('Completá nombre y precio'); return; }
+  const decimales = document.getElementById('a-prod-decimales').checked;
+  if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
   loading(true, 'Guardando producto...');
   let lista = (await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single()).data;
   if (!lista) {
@@ -925,16 +1216,18 @@ async function agregarProducto() {
   await sb.from('productos').insert({
     lista_id: lista.id, nombre, precio, unidad,
     stock: stockVal === '' ? null : Number(stockVal),
-    imagen_base64: pendingImg || null
+    imagen_base64: pendingImg || null,
+    permite_decimales: decimales
   });
   loading(false);
   document.getElementById('a-prod-nombre').value = '';
   document.getElementById('a-prod-precio').value = '';
   document.getElementById('a-prod-stock').value = '';
+  document.getElementById('a-prod-decimales').checked = false;
   pendingImg = null;
   const area = document.getElementById('img-upload-area');
   area.className = 'img-upload-area';
-  area.innerHTML = '<div id="img-placeholder"><div style="font-size:28px;">🖼️</div><p style="font-size:12px;color:var(--text2);margin-top:5px;">Tocá para subir imagen</p></div>';
+  area.innerHTML = '<div id="img-placeholder"><div style="font-size:28px;">🖼️</div><p style="font-size:12px;color:var(--text2);margin-top:5px;">Toca para subir imagen</p></div>';
   document.getElementById('prod-img-input').value = '';
   await renderAdminLista();
   notif('Producto agregado ✓');
@@ -964,12 +1257,7 @@ async function generarMensajeWA() {
   const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id);
   if (!prods || prods.length === 0) { notif('No hay productos'); return; }
   const sem = semanaActual();
-  let msg = `🧀 *Venta de Quesos y Algo Más*\n📅 *Lista semanal ${sem}*\n\n`;
-  prods.forEach(p => {
-    const st = (p.stock !== null && p.stock !== undefined) ? ` _(${p.stock} disponibles)_` : '';
-    msg += `• ${p.nombre} — *${fmt(p.precio)}* / ${p.unidad}${st}\n`;
-  });
-  msg += `\n📲 Ingresá a la app para hacer tu pedido:\n[enlace a la app]\n\n_¡Productos frescos cada semana!_ 🌿`;
+  let msg = `🧀 *Hola estimados clientes!*\n\nSi desea realizar su pedido, por favor ingresar a la siguiente app:\n\nhttps://quesos-y-algo-mas.netlify.app\n\n_¡Productos frescos cada semana!_ 🌿`;
   document.getElementById('a-wa-texto').textContent = msg;
   document.getElementById('a-wa-msg').style.display = 'block';
 }
@@ -980,23 +1268,314 @@ async function renderAdminPedidos() {
   const sem = semanaActual();
   document.getElementById('a-pedidos-semana-sub').textContent = `Semana ${sem}`;
   loading(true, 'Cargando pedidos...');
-  const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido)').eq('semana', sem).order('created_at', { ascending: false });
+  const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)').eq('semana', sem);
   loading(false);
   const el = document.getElementById('a-pedidos-list');
   if (!pedidos || pedidos.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No hay pedidos esta semana</p></div>'; return; }
-  el.innerHTML = pedidos.map(p => {
+
+  // Ordenar por apellido A-Z
+  pedidos.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+
+  window._pedidosData = pedidos;
+  const btnExcel = `<button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="exportarPedidosExcel()">📊 Exportar a Excel</button>`;
+
+  // Tabla
+  const tabla = `<div class="table-wrap" style="margin-top:4px;">
+    <table class="admin-table">
+      <thead><tr><th>Apellido</th><th>Nombre</th><th>Ubicación</th><th>Productos</th><th>Total</th><th>Teléfono</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>${pedidos.map(p => {
+        const u = p.profiles;
+        const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
+        const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+        return `<tr>
+          <td style="font-weight:600;">${u?.apellido || '—'}</td>
+          <td>${u?.nombre || '—'}</td>
+          <td><span style="font-size:11px;">📍 ${ubicacion}</span></td>
+          <td style="font-size:12px;">${prods}</td>
+          <td style="font-weight:700;white-space:nowrap;">${fmt(p.total)}</td>
+          <td style="font-size:12px;">${p.telefono_pago || '—'}</td>
+          <td><span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span></td>
+          <td>${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Entregar</button>` : '<span style="font-size:11px;color:var(--green);">✓</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+
+  el.innerHTML = btnExcel + tabla;
+}
+
+async function exportarPedidosExcel() {
+  const pedidos = window._pedidosData || [];
+  if (pedidos.length === 0) { notif('No hay datos para exportar'); return; }
+  const rows = [['Cliente', 'Ubicación', 'Productos', 'Total', 'Banco', 'Teléfono Pago', 'Fecha Pago', 'Hora', 'Estado', 'Fecha Pedido']];
+  pedidos.forEach(p => {
     const u = p.profiles;
-    return `<div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div><div style="font-weight:700;font-size:15px;">${u ? u.nombre + ' ' + u.apellido : '—'}</div>
-        <div style="font-size:12px;color:var(--text2);">${new Date(p.created_at).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}</div></div>
-        <span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span>
+    const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '' : '';
+    const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    rows.push([
+      u ? u.nombre + ' ' + u.apellido : '', ubicacion, prods, p.total,
+      p.banco || '', p.telefono_pago || '', p.fecha_pago || '', p.hora_pago || '',
+      p.entregado ? 'Entregado' : 'Pendiente',
+      new Date(p.created_at).toLocaleDateString('es-CO')
+    ]);
+  });
+  descargarExcel(rows, `pedidos_${semanaActual()}.csv`);
+  notif('✓ Archivo descargado');
+}
+
+// ── ADMIN: DASHBOARD ─────────────────────────────
+async function renderDashboard() {
+  const sem = semanaActual();
+  document.getElementById('dash-semana-label').textContent = `Semana ${sem}`;
+  loading(true, 'Cargando dashboard...');
+
+  // Cargar datos en paralelo
+  const [{ data: pedidos }, { data: clientes }, { data: pagos }, { data: pedidosSem }] = await Promise.all([
+    sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido)'),
+    sb.from('profiles').select('*').eq('rol', 'cliente'),
+    sb.from('pagos').select('*'),
+    sb.from('pedidos').select('*,pedido_items(*)').eq('semana', sem)
+  ]);
+
+  loading(false);
+
+  // ── MÉTRICAS SEMANA ACTUAL ──
+  const pedSem = pedidosSem || [];
+  const totalSem = pedSem.reduce((s, p) => s + (p.total || 0), 0);
+  const entregadosSem = pedSem.filter(p => p.entregado).length;
+  const tasaEntrega = pedSem.length > 0 ? Math.round(entregadosSem / pedSem.length * 100) : 0;
+  const totalDeuda = (clientes || []).reduce((s, c) => s + (c.deuda_anterior || 0) + (c.deuda_semana || 0), 0);
+  const clientesConDeuda = (clientes || []).filter(c => (c.deuda_anterior || 0) + (c.deuda_semana || 0) > 0).length;
+
+  // ── PRODUCTOS MÁS PEDIDOS (semana actual) ──
+  const contProd = {};
+  pedSem.forEach(p => (p.pedido_items || []).forEach(i => {
+    if (!contProd[i.nombre]) contProd[i.nombre] = { cantidad: 0, subtotal: 0 };
+    contProd[i.nombre].cantidad += i.cantidad;
+    contProd[i.nombre].subtotal += i.precio * i.cantidad;
+  }));
+  const topProds = Object.entries(contProd).sort((a, b) => b[1].cantidad - a[1].cantidad).slice(0, 5);
+
+  // ── COMPARATIVA ÚLTIMAS 4 SEMANAS ──
+  const todasSemanas = [...new Set((pedidos || []).map(p => p.semana))].sort().slice(-4);
+  const compSemanas = todasSemanas.map(s => ({
+    semana: s,
+    total: (pedidos || []).filter(p => p.semana === s).reduce((sum, p) => sum + (p.total || 0), 0),
+    pedidos: (pedidos || []).filter(p => p.semana === s).length
+  }));
+
+  // ── CLIENTES CON MAYOR DEUDA ──
+  const topDeudores = [...(clientes || [])]
+    .map(c => ({ ...c, deudaTotal: (c.deuda_anterior || 0) + (c.deuda_semana || 0) }))
+    .filter(c => c.deudaTotal > 0)
+    .sort((a, b) => b.deudaTotal - a.deudaTotal)
+    .slice(0, 5);
+
+  // ── PEDIDOS POR UBICACIÓN (semana actual) ──
+  const { data: pedUbic } = await sb.from('pedidos').select('*,profiles(ubicacion,ubicacion_otro)').eq('semana', sem);
+  const contUbic = {};
+  (pedUbic || []).forEach(p => {
+    const u = p.profiles;
+    const loc = u ? (u.ubicacion === 'OTRO' ? (u.ubicacion_otro || 'OTRO') : u.ubicacion) || 'Sin ubicación' : 'Sin ubicación';
+    if (!contUbic[loc]) contUbic[loc] = { pedidos: 0, total: 0 };
+    contUbic[loc].pedidos++;
+    contUbic[loc].total += p.total || 0;
+  });
+
+  // ── RENDER ──
+  const fmtPct = (v) => `${v}%`;
+  const maxComp = Math.max(...compSemanas.map(s => s.total), 1);
+
+  document.getElementById('dash-contenido').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Pedidos semana</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--brown);margin:4px 0;">${pedSem.length}</div>
       </div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${(p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(' · ')}</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:10px;">${fmt(p.total)}</div>
-      ${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Registrar entrega</button>` : '<span style="font-size:12px;color:var(--green);">✓ Entregado</span>'}
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Total facturado</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--brown);margin:4px 0;">${fmt(totalSem)}</div>
+      </div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Tasa de entrega</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:${tasaEntrega>=80?'var(--green)':'var(--red)'};margin:4px 0;">${fmtPct(tasaEntrega)}</div>
+      </div>
+      <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Deuda total</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:${totalDeuda>0?'var(--red)':'var(--green)'};margin:4px 0;">${fmtUSD(totalDeuda)}</div>
+        <div style="font-size:11px;color:var(--text2);">${clientesConDeuda} cliente${clientesConDeuda!==1?'s':''}</div>
+      </div>
+    </div>
+
+    ${topProds.length > 0 ? `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">📦 Productos más pedidos esta semana</div>
+      ${topProds.map(([nombre, d]) => `
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span style="font-weight:500;">${nombre}</span>
+            <span style="color:var(--text2);">${d.cantidad} uds. · ${fmt(d.subtotal)}</span>
+          </div>
+          <div style="background:var(--cream2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="background:var(--brown3);height:100%;width:${Math.round(d.cantidad/topProds[0][1].cantidad*100)}%;border-radius:4px;"></div>
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${compSemanas.length > 0 ? `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">📈 Comparativa de semanas</div>
+      ${compSemanas.map((s, i) => {
+        const prev = compSemanas[i - 1];
+        const diff = prev ? ((s.total - prev.total) / prev.total * 100).toFixed(1) : null;
+        const color = diff === null ? 'var(--text2)' : Number(diff) >= 0 ? 'var(--green)' : 'var(--red)';
+        return `<div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span>${s.semana}</span>
+            <span style="display:flex;gap:8px;align-items:center;">
+              <span style="font-weight:600;">${fmt(s.total)}</span>
+              ${diff !== null ? `<span style="font-size:11px;color:${color};">${Number(diff)>=0?'+':''}${diff}%</span>` : ''}
+            </span>
+          </div>
+          <div style="background:var(--cream2);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="background:var(--brown);height:100%;width:${Math.round(s.total/maxComp*100)}%;border-radius:4px;"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    ${topDeudores.length > 0 ? `
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">⚠️ Clientes con mayor deuda</div>
+      ${topDeudores.map(c => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span>${c.apellido} ${c.nombre}</span>
+          <span style="font-weight:700;color:var(--red);">${fmtUSD(c.deudaTotal)}</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${Object.keys(contUbic).length > 0 ? `
+    <div class="card">
+      <div style="font-weight:700;font-size:14px;color:var(--brown);margin-bottom:12px;">📍 Pedidos por ubicación</div>
+      ${Object.entries(contUbic).sort((a,b)=>b[1].pedidos-a[1].pedidos).map(([loc, d]) => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+          <span style="font-weight:500;">${loc}</span>
+          <span style="display:flex;gap:12px;">
+            <span style="color:var(--text2);">${d.pedidos} pedido${d.pedidos!==1?'s':''}</span>
+            <span style="font-weight:600;">${fmt(d.total)}</span>
+          </span>
+        </div>`).join('')}
+    </div>` : ''}
+  `;
+}
+
+// ── ADMIN: POR UBICACIÓN ──────────────────────────
+let _ubPedidos = [];
+let _ubSeleccion = null;
+
+async function renderAdminUbicacion() {
+  loading(true, 'Cargando pedidos...');
+  const sem = semanaActual();
+  const { data: pedidos } = await sb.from('pedidos')
+    .select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)')
+    .eq('semana', sem);
+  loading(false);
+
+  _ubPedidos = pedidos || [];
+
+  // Obtener ubicaciones únicas
+  const ubicaciones = [...new Set(_ubPedidos.map(p => {
+    const u = p.profiles;
+    return u ? (u.ubicacion === 'OTRO' ? (u.ubicacion_otro || 'OTRO') : u.ubicacion) || 'Sin ubicación' : 'Sin ubicación';
+  }))].sort();
+
+  // Botones de filtro
+  document.getElementById('ub-filtros').innerHTML = ubicaciones.map(ub =>
+    `<button class="btn btn-sm" id="ub-btn-${ub.replace(/\s/g,'_')}"
+      style="background:${_ubSeleccion===ub?'var(--brown)':'var(--cream2)'};color:${_ubSeleccion===ub?'white':'var(--text2)'};"
+      onclick="filtrarUbicacion('${ub}')">📍 ${ub}</button>`
+  ).join('') + (ubicaciones.length === 0 ? '<p style="font-size:13px;color:var(--text2);">No hay pedidos esta semana</p>' : '');
+
+  if (_ubSeleccion) filtrarUbicacion(_ubSeleccion);
+  else document.getElementById('ub-contenido').innerHTML = '<div class="empty-state"><div class="icon">📍</div><p>Selecciona una ubicación para ver los pedidos</p></div>';
+}
+
+function filtrarUbicacion(ub) {
+  _ubSeleccion = ub;
+
+  // Actualizar estilo de botones
+  document.querySelectorAll('[id^="ub-btn-"]').forEach(btn => {
+    const isActive = btn.id === 'ub-btn-' + ub.replace(/\s/g,'_');
+    btn.style.background = isActive ? 'var(--brown)' : 'var(--cream2)';
+    btn.style.color = isActive ? 'white' : 'var(--text2)';
+  });
+
+  // Filtrar pedidos de esta ubicación
+  const pedidosFiltrados = _ubPedidos.filter(p => {
+    const u = p.profiles;
+    const loc = u ? (u.ubicacion === 'OTRO' ? (u.ubicacion_otro || 'OTRO') : u.ubicacion) || 'Sin ubicación' : 'Sin ubicación';
+    return loc === ub;
+  }).sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+
+  if (pedidosFiltrados.length === 0) {
+    document.getElementById('ub-contenido').innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No hay pedidos para esta ubicación</p></div>';
+    return;
+  }
+
+  // Calcular totales por producto
+  const totalesProd = {};
+  pedidosFiltrados.forEach(p => {
+    (p.pedido_items || []).forEach(item => {
+      if (!totalesProd[item.nombre]) totalesProd[item.nombre] = { cantidad: 0, subtotal: 0 };
+      totalesProd[item.nombre].cantidad += item.cantidad;
+      totalesProd[item.nombre].subtotal += item.precio * item.cantidad;
+    });
+  });
+
+  const totalGeneral = pedidosFiltrados.reduce((s, p) => s + p.total, 0);
+
+  // Resumen de totales
+  const resumenHtml = `
+    <div class="card" style="margin-bottom:14px;background:linear-gradient(135deg,var(--brown) 0%,var(--brown2) 100%);">
+      <div style="color:rgba(255,255,255,.7);font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Total general — ${ub}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:32px;color:white;margin:4px 0;">${fmt(totalGeneral)}</div>
+      <div style="color:rgba(255,255,255,.7);font-size:12px;">${pedidosFiltrados.length} pedido${pedidosFiltrados.length>1?'s':''}</div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div style="font-weight:600;font-size:14px;color:var(--brown);margin-bottom:12px;">📦 Totales por producto</div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Producto</th><th>Cantidad total</th><th>Subtotal</th></tr></thead>
+          <tbody>${Object.entries(totalesProd).sort((a,b)=>a[0].localeCompare(b[0],'es')).map(([nombre, d]) =>
+            `<tr><td style="font-weight:500;">${nombre}</td><td style="font-weight:700;color:var(--brown);">${d.cantidad} uds.</td><td>${fmt(d.subtotal)}</td></tr>`
+          ).join('')}</tbody>
+        </table>
+      </div>
     </div>`;
-  }).join('');
+
+  // Lista de pedidos
+  const pedidosHtml = `
+    <div class="card">
+      <div style="font-weight:600;font-size:14px;color:var(--brown);margin-bottom:12px;">👥 Pedidos (${pedidosFiltrados.length})</div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Apellido</th><th>Nombre</th><th>Productos</th><th>Total</th><th>Estado</th></tr></thead>
+          <tbody>${pedidosFiltrados.map(p => {
+            const u = p.profiles;
+            const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+            return `<tr>
+              <td style="font-weight:600;">${u?.apellido || '—'}</td>
+              <td>${u?.nombre || '—'}</td>
+              <td style="font-size:12px;">${prods}</td>
+              <td style="font-weight:700;">${fmt(p.total)}</td>
+              <td><span class="badge ${p.entregado?'badge-green':'badge-amber'}">${p.entregado?'Entregado':'Pendiente'}</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  document.getElementById('ub-contenido').innerHTML = resumenHtml + pedidosHtml;
 }
 
 // ── ADMIN: CLIENTES ───────────────────────────────
@@ -1006,15 +1585,21 @@ async function renderAdminClientes() {
   loading(false);
   const tbody = document.getElementById('a-clientes-tbody');
   if (!clientes || clientes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text2);">No hay clientes registrados</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text2);">No hay clientes registrados</td></tr>'; return;
   }
+  // Ordenar por apellido A-Z
+  clientes.sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '', 'es'));
   tbody.innerHTML = clientes.map(u => {
     const total = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
+    const autLabel = u.autorizado_con_deuda ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>';
     return `<tr>
-      <td><div style="font-weight:600;">${u.nombre} ${u.apellido}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
+      <td><div style="font-weight:600;">${u.apellido} ${u.nombre}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
+      <td>${u.cedula || '—'}</td>
       <td>${u.telefono || '—'}</td>
       <td style="font-weight:700;">${fmt(total)}</td>
       <td><span class="badge ${total <= 0 ? 'badge-green' : 'badge-amber'}">${total <= 0 ? 'Al día' : 'Con deuda'}</span></td>
+      <td style="text-align:center;">${autLabel}<br><button class="btn btn-sm" style="margin-top:4px;background:${u.autorizado_con_deuda?'var(--red2)':'var(--green3)'};color:${u.autorizado_con_deuda?'var(--red)':'var(--green)'};padding:3px 8px;font-size:11px;" onclick="toggleAutorizacion('${u.id}',${u.autorizado_con_deuda})">${u.autorizado_con_deuda?'Revocar':'Autorizar'}</button></td>
+      <td><button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="openResetPass('${u.id}','${u.nombre} ${u.apellido}')">🔑 Resetear</button></td>
       <td><button class="btn btn-outline btn-sm" onclick="openAbonarModal('${u.id}','${u.nombre} ${u.apellido}',${total})">Abonar</button></td>
     </tr>`;
   }).join('');
@@ -1023,24 +1608,32 @@ async function renderAdminClientes() {
 // ── ADMIN: ENTREGAS ───────────────────────────────
 async function renderAdminEntregas() {
   loading(true, 'Cargando entregas...');
-  const { data: entregas } = await sb.from('entregas').select('*,profiles(nombre,apellido),pedidos(total,pedido_items(*))').order('created_at', { ascending: false });
+  const { data: entregas } = await sb.from('entregas').select('*,profiles(nombre,apellido),pedidos(total,pedido_items(*))');
   loading(false);
   const el = document.getElementById('a-entregas-list');
   if (!entregas || entregas.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">🚚</div><p>No hay entregas registradas</p></div>'; return; }
-  el.innerHTML = entregas.map(e => {
-    const u = e.profiles;
-    const p = e.pedidos;
-    return `<div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <div style="font-weight:700;">${u ? u.nombre + ' ' + u.apellido : '—'}</div>
-        <span class="badge badge-green">Entregado</span>
-      </div>
-      <div style="font-size:13px;color:var(--text2);">📅 ${e.fecha} · Semana ${e.semana}</div>
-      <div style="font-size:13px;margin-top:5px;">${p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre} x${i.cantidad}`).join(', ') : '—'}</div>
-      ${e.observaciones ? `<div style="font-size:12px;color:var(--text2);margin-top:3px;">📝 ${e.observaciones}</div>` : ''}
-      <div style="margin-top:8px;font-size:13px;color:var(--text2);">Deuda ant.: <strong>${fmt(e.deuda_anterior)}</strong> · Semana: <strong>${fmt(e.deuda_semana)}</strong></div>
-    </div>`;
-  }).join('');
+  // Ordenar por apellido A-Z
+  entregas.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+  el.innerHTML = `<div class="table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Apellido</th><th>Nombre</th><th>Fecha</th><th>Semana</th><th>Productos</th><th>Deuda ant.</th><th>Deuda sem.</th><th>Obs.</th></tr></thead>
+      <tbody>${entregas.map(e => {
+        const u = e.profiles;
+        const p = e.pedidos;
+        const prods = p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre} x${i.cantidad}`).join(', ') : '—';
+        return `<tr>
+          <td style="font-weight:600;">${u?.apellido || '—'}</td>
+          <td>${u?.nombre || '—'}</td>
+          <td style="white-space:nowrap;">${e.fecha}</td>
+          <td style="font-size:12px;">${e.semana}</td>
+          <td style="font-size:12px;">${prods}</td>
+          <td>${fmt(e.deuda_anterior)}</td>
+          <td>${fmt(e.deuda_semana)}</td>
+          <td style="font-size:12px;color:var(--text2);">${e.observaciones || '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
 }
 
 // ── MODALES ───────────────────────────────────────
@@ -1088,7 +1681,7 @@ async function confirmarAbono() {
   const ref = document.getElementById('abonar-ref').value.trim() || 'Pago vía admin';
   if (monto <= 0) { notif('Ingresá un monto'); return; }
   loading(true, 'Registrando abono...');
-  await sb.from('pagos').insert({ cliente_id: abonarTarget.uid, monto, descripcion: ref, semana: semanaActual() });
+  await sb.from('pagos').insert({ cliente_id: abonarTarget.uid, monto, descripcion: ref, semana: semanaActual(), tasa_cambio: tasaCambioActual });
   const u = await sincronizarDeuda(abonarTarget.uid);
   let resta = monto, nuevaSem = u.deuda_semana || 0, nuevaAnt = u.deuda_anterior || 0;
   if (nuevaSem > 0) { const q = Math.min(resta, nuevaSem); nuevaSem -= q; resta -= q; }
@@ -1101,6 +1694,32 @@ async function confirmarAbono() {
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+async function toggleAutorizacion(uid, actual) {
+  loading(true, actual ? 'Revocando autorización...' : 'Autorizando...');
+  await sb.from('profiles').update({ autorizado_con_deuda: !actual }).eq('id', uid);
+  loading(false);
+  notif(actual ? 'Autorización revocada' : '✓ Cliente autorizado para pedir con deuda');
+  renderAdminClientes();
+}
+
+let resetTarget = null;
+function openResetPass(uid, nombre) {
+  resetTarget = uid;
+  document.getElementById('modal-reset-sub').textContent = `Cliente: ${nombre}`;
+  document.getElementById('reset-nueva-pass').value = '';
+  document.getElementById('modal-reset-pass').classList.add('active');
+}
+
+async function confirmarResetPass() {
+  const nueva = document.getElementById('reset-nueva-pass').value.trim();
+  if (!nueva || nueva.length < 6) { notif('La contraseña debe tener al menos 6 caracteres'); return; }
+  loading(true, 'Guardando contraseña...');
+  await sb.from('profiles').update({ password_hash: nueva }).eq('id', resetTarget);
+  loading(false);
+  closeModal('modal-reset-pass');
+  notif('✓ Contraseña actualizada correctamente');
+}
 </script>
 </body>
 </html>
