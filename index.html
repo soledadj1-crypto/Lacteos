@@ -300,6 +300,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-title">Registrar pago</div>
     <div class="section-sub">Completa los siguientes datos</div>
 
+    <!-- BANNER DEUDA EN USD -->
+    <div style="background:linear-gradient(135deg,var(--red) 0%,#9B1C1C 100%);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;">
+      <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;">Tu deuda pendiente</div>
+      <div style="font-family:'Playfair Display',serif;font-size:36px;color:white;margin:4px 0;" id="c-deuda-pagar-usd">$ 0.00 USD</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.65);" id="c-deuda-pagar-sub">Al día 🎉</div>
+    </div>
+
     <!-- TASA DE CAMBIO VISIBLE -->
     <div style="background:linear-gradient(135deg,var(--brown) 0%,var(--brown2) 100%);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
       <div>
@@ -316,16 +323,16 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:11px;color:var(--green);opacity:.8;">Banco</div>
-            <div style="font-size:14px;font-weight:600;color:var(--text);">Banplus</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Banplus (0174)</div>
           </div>
-          <button onclick="copiarDato('(0174) Banplus bano universal','Banco')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
+          <button onclick="copiarDato('Banplus (0174)','Banco')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-size:11px;color:var(--green);opacity:.8;">Teléfono</div>
-            <div style="font-size:14px;font-weight:600;color:var(--text);">04164352079</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">04164355-2079</div>
           </div>
-          <button onclick="copiarDato('04164352079','Teléfono')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
+          <button onclick="copiarDato('04164355-2079','Teléfono')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div>
@@ -333,6 +340,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
             <div style="font-size:14px;font-weight:600;color:var(--text);">11.925.538</div>
           </div>
           <button onclick="copiarDato('11925538','C.I.')" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--green);opacity:.8;">Monto a pagar (Bs.)</div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);" id="c-deuda-pagar-bs">—</div>
+          </div>
+          <button onclick="copiarDeudaBs()" style="background:var(--green);color:white;border:none;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;">Copiar</button>
         </div>
       </div>
     </div>
@@ -975,6 +989,26 @@ function renderClientePagar() {
   document.getElementById('pago-preview').style.display = 'none';
   document.getElementById('pago-conversion').style.display = 'none';
   document.getElementById('c-tasa-display').textContent = tasaCambioActual > 0 ? tasaCambioActual.toLocaleString('es-CO') + ' Bs./$' : 'No configurada';
+
+  // Deuda en USD
+  const deudaUSD = (currentUser.deuda_anterior || 0) + (currentUser.deuda_semana || 0);
+  document.getElementById('c-deuda-pagar-usd').textContent = fmtUSD(deudaUSD);
+  document.getElementById('c-deuda-pagar-sub').textContent = deudaUSD <= 0 ? 'Al día 🎉' : 'Deuda pendiente';
+
+  // Deuda en Bs.
+  if (deudaUSD > 0 && tasaCambioActual > 0) {
+    const deudaBs = (deudaUSD * tasaCambioActual).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('c-deuda-pagar-bs').textContent = `Bs. ${deudaBs}`;
+  } else {
+    document.getElementById('c-deuda-pagar-bs').textContent = tasaCambioActual > 0 ? 'Bs. 0,00' : 'Configura la tasa primero';
+  }
+}
+
+function copiarDeudaBs() {
+  const texto = document.getElementById('c-deuda-pagar-bs').textContent;
+  // Copiar solo el número sin "Bs."
+  const numero = texto.replace('Bs. ', '').trim();
+  navigator.clipboard.writeText(numero).then(() => notif('✓ Monto en Bs. copiado'));
 }
 
 function validarDatosBancarios() {
