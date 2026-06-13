@@ -937,7 +937,7 @@ function quitarDelCarrito(pid) {
 async function confirmarPedido() {
   const items = Object.entries(carrito).filter(([, q]) => q > 0).map(([pid, qty]) => {
     const p = productosActuales.find(x => x.id === pid);
-    return { pid, nombre: p.nombre, precio: p.precio, qty, imagen_base64: p.imagen_base64 || null };
+    return { pid, nombre: p.nombre, precio: p.precio, qty, unidad: p.unidad || '', imagen_base64: p.imagen_base64 || null };
   });
   if (items.length === 0) return;
   const total = items.reduce((s, i) => s + i.precio * i.qty, 0);
@@ -947,7 +947,7 @@ async function confirmarPedido() {
   }).select().single();
   if (pe) { loading(false); notif('Error al guardar pedido: ' + pe.message); return; }
   const { error: ie } = await sb.from('pedido_items').insert(items.map(i => ({
-    pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, imagen_base64: i.imagen_base64
+    pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, unidad: i.unidad, imagen_base64: i.imagen_base64
   })));
   if (ie) { loading(false); notif('Error al guardar productos: ' + ie.message); return; }
   const u = await sincronizarDeuda(currentUser.id);
@@ -1545,33 +1545,38 @@ function filtrarUbicacion(ub) {
     return;
   }
 
-  // Calcular totales por producto agrupando por nombre + cantidad
+  // Calcular totales por producto agrupando por nombre + unidad + cantidad pedida
   const totalesProd = {};
   pedidosFiltrados.forEach(p => {
     (p.pedido_items || []).forEach(item => {
-      // Clave única: nombre del producto + cantidad pedida (ej: "Queso Duro|1" o "Queso Duro|0.5")
-      const clave = `${item.nombre}|||${item.cantidad}`;
+      const unidad = item.unidad || '';
+      const cantidad = Number(item.cantidad);
+      // Clave: nombre + unidad + cantidad pedida por el cliente
+      const clave = `${item.nombre}|||${unidad}|||${cantidad}`;
       if (!totalesProd[clave]) {
         totalesProd[clave] = {
           nombre: item.nombre,
-          cantidadPedida: item.cantidad,
-          totalUnidades: 0,
+          unidad,
+          cantidadPedida: cantidad, // cuánto pidió cada cliente (ej: 1, 0.5, 2)
+          numClientes: 0,           // cuántos clientes pidieron esa variante
           subtotal: 0
         };
       }
-      totalesProd[clave].totalUnidades += 1; // 1 cliente pidió esta cantidad
-      totalesProd[clave].subtotal += item.precio * item.cantidad;
+      totalesProd[clave].numClientes += 1;
+      totalesProd[clave].subtotal += item.precio * cantidad;
     });
   });
 
-  // Agrupar por nombre de producto para mostrar jerarquía
+  // Agrupar variantes por nombre de producto
   const prodAgrupados = {};
   Object.values(totalesProd).forEach(d => {
     if (!prodAgrupados[d.nombre]) prodAgrupados[d.nombre] = [];
     prodAgrupados[d.nombre].push(d);
   });
-  // Ordenar variantes dentro de cada producto por cantidad pedida desc
-  Object.values(prodAgrupados).forEach(arr => arr.sort((a, b) => b.cantidadPedida - a.cantidadPedida));
+  // Ordenar variantes por unidad y luego por cantidad pedida
+  Object.values(prodAgrupados).forEach(arr =>
+    arr.sort((a, b) => a.unidad.localeCompare(b.unidad, 'es') || b.cantidadPedida - a.cantidadPedida)
+  );
 
   const totalGeneral = pedidosFiltrados.reduce((s, p) => s + p.total, 0);
 
@@ -1584,24 +1589,25 @@ function filtrarUbicacion(ub) {
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div style="font-weight:600;font-size:14px;color:var(--brown);margin-bottom:14px;">📦 Totales por producto</div>
-      ${Object.entries(prodAgrupados).sort((a,b)=>a[0].localeCompare(b[0],'es')).map(([nombre, variantes]) => `
-        <div style="margin-bottom:14px;">
+      ${Object.entries(prodAgrupados).sort((a,b)=>a[0].localeCompare(b[0],'es')).map(([nombre, variantes]) => {
+        const totalUnidades = variantes.reduce((s,v) => s + v.numClientes, 0);
+        return `<div style="margin-bottom:14px;">
           <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">
-            ${nombre}
-            <span style="font-size:12px;color:var(--text2);font-weight:400;margin-left:6px;">(${variantes.reduce((s,v)=>s+v.totalUnidades,0)} pedido${variantes.reduce((s,v)=>s+v.totalUnidades,0)!==1?'s':''})</span>
+            ${nombre} <span style="font-size:12px;color:var(--text2);font-weight:400;">(${totalUnidades} pedido${totalUnidades!==1?'s':''})</span>
           </div>
           ${variantes.map(v => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:var(--cream2);border-radius:var(--radius-sm);margin-bottom:4px;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:12px;color:var(--text2);">Cantidad:</span>
-                <span style="font-weight:700;color:var(--brown);font-size:15px;">${v.cantidadPedida}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--cream2);border-radius:var(--radius-sm);margin-bottom:4px;">
+              <div style="font-size:13px;">
+                <span style="font-weight:600;color:var(--brown);">${v.cantidadPedida} ${v.unidad}</span>
+                <span style="color:var(--text2);margin-left:4px;">por unidad</span>
               </div>
-              <div style="display:flex;gap:16px;align-items:center;">
-                <span style="font-size:13px;color:var(--text2);">${v.totalUnidades} cliente${v.totalUnidades!==1?'s':''}</span>
-                <span style="font-weight:700;font-size:13px;">${fmt(v.subtotal)}</span>
+              <div style="display:flex;gap:14px;align-items:center;">
+                <span style="font-weight:700;font-size:15px;color:var(--text);">${v.numClientes} unid.</span>
+                <span style="font-size:12px;color:var(--text2);">${fmt(v.subtotal)}</span>
               </div>
             </div>`).join('')}
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`;
 
   // Lista de pedidos
