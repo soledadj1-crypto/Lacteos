@@ -800,10 +800,10 @@ async function renderClienteInicio() {
   if (u) {
     currentUser = { ...currentUser, ...u };
     const total = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
-    document.getElementById('c-deuda-total').textContent = fmt(total);
+    document.getElementById('c-deuda-total').textContent = fmtUSD(total);
     document.getElementById('c-deuda-sub').textContent = total <= 0 ? 'Sin deuda pendiente 🎉' : 'Deuda pendiente';
-    document.getElementById('c-deuda-ant').textContent = fmt(u.deuda_anterior);
-    document.getElementById('c-deuda-sem').textContent = fmt(u.deuda_semana);
+    document.getElementById('c-deuda-ant').textContent = fmtUSD(u.deuda_anterior);
+    document.getElementById('c-deuda-sem').textContent = fmtUSD(u.deuda_semana);
   }
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
   document.getElementById('c-lista-estado').innerHTML = (lista && lista.publicada)
