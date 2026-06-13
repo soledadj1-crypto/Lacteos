@@ -458,7 +458,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Gestión de cuentas y deudas — ordenados alfabéticamente</div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Aut. deuda</th><th>Contraseña</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Contraseña</th><th></th></tr></thead>
         <tbody id="a-clientes-tbody"></tbody>
       </table>
     </div>
@@ -549,7 +549,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   <div class="modal-box">
     <div class="modal-title">Abonar a cuenta</div>
     <div class="modal-sub" id="modal-abonar-sub"></div>
-    <div class="form-group"><label>Monto (COP $)</label><input type="number" id="abonar-monto" placeholder="0"/></div>
+    <div class="form-group"><label>Monto a abonar (USD $)</label><input type="number" id="abonar-monto" placeholder="0" step="0.01"/></div>
     <div class="form-group"><label>Referencia</label><input type="text" id="abonar-ref" placeholder="Ej: Transferencia recibida"/></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-abonar')">Cancelar</button>
@@ -825,17 +825,6 @@ async function renderClienteInicio() {
 async function renderClienteTienda() {
   document.getElementById('c-lista-semana-label').textContent = `Semana ${semanaActual()}`;
   const el = document.getElementById('c-productos-grid');
-
-  // Validar deuda anterior
-  const u = await sincronizarDeuda(currentUser.id);
-  if (u && (u.deuda_anterior || 0) > 0 && !u.autorizado_con_deuda) {
-    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
-      <div class="icon">🔒</div>
-      <p style="font-weight:600;color:var(--red);margin-bottom:6px;">No puedes hacer pedidos</p>
-      <p>Tienes una deuda pendiente de semanas anteriores de <strong>${fmtUSD(u.deuda_anterior)}</strong>.<br>Contáctate con el administrador para regularizar tu cuenta.</p>
-    </div>`;
-    return;
-  }
 
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
   if (!lista || !lista.publicada) {
@@ -1625,14 +1614,12 @@ async function renderAdminClientes() {
   clientes.sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '', 'es'));
   tbody.innerHTML = clientes.map(u => {
     const total = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
-    const autLabel = u.autorizado_con_deuda ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>';
     return `<tr>
       <td><div style="font-weight:600;">${u.apellido} ${u.nombre}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
       <td>${u.cedula || '—'}</td>
       <td>${u.telefono || '—'}</td>
       <td style="font-weight:700;">${fmt(total)}</td>
       <td><span class="badge ${total <= 0 ? 'badge-green' : 'badge-amber'}">${total <= 0 ? 'Al día' : 'Con deuda'}</span></td>
-      <td style="text-align:center;">${autLabel}<br><button class="btn btn-sm" style="margin-top:4px;background:${u.autorizado_con_deuda?'var(--red2)':'var(--green3)'};color:${u.autorizado_con_deuda?'var(--red)':'var(--green)'};padding:3px 8px;font-size:11px;" onclick="toggleAutorizacion('${u.id}',${u.autorizado_con_deuda})">${u.autorizado_con_deuda?'Revocar':'Autorizar'}</button></td>
       <td><button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="openResetPass('${u.id}','${u.nombre} ${u.apellido}')">🔑 Resetear</button></td>
       <td><button class="btn btn-outline btn-sm" onclick="openAbonarModal('${u.id}','${u.nombre} ${u.apellido}',${total})">Abonar</button></td>
     </tr>`;
@@ -1712,8 +1699,8 @@ function openAbonarModal(uid, nombre, deudaTotal) {
 
 async function confirmarAbono() {
   const monto = Number(document.getElementById('abonar-monto').value) || 0;
-  const ref = document.getElementById('abonar-ref').value.trim() || 'Pago vía admin';
-  if (monto <= 0) { notif('Ingresá un monto'); return; }
+  const ref = document.getElementById('abonar-ref').value.trim() || 'Abono registrado por admin';
+  if (monto <= 0) { notif('Ingresa un monto'); return; }
   loading(true, 'Registrando abono...');
   await sb.from('pagos').insert({ cliente_id: abonarTarget.uid, monto, descripcion: ref, semana: semanaActual(), tasa_cambio: tasaCambioActual });
   const u = await sincronizarDeuda(abonarTarget.uid);
