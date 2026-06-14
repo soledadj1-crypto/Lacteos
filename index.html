@@ -401,6 +401,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="tab" onclick="adminTab('clientes')">Clientes</div>
     <div class="tab" onclick="adminTab('entregas')">Entregas</div>
     <div class="tab" onclick="adminTab('ubicacion')">Por Ubicación</div>
+    <div class="tab" onclick="adminTab('conciliacion')">Conciliación</div>
     <div class="tab" onclick="adminTab('dashboard')">Dashboard</div>
     <div class="tab" onclick="adminTab('config')">Config</div>
   </div>
@@ -438,6 +439,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div id="a-productos-lista"></div>
     <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
       <button class="btn btn-green" onclick="publicarLista()">✓ Publicar lista</button>
+      <button class="btn btn-outline" onclick="copiarSemanaAnterior()">📋 Copiar semana anterior</button>
       <button class="btn btn-outline" onclick="generarMensajeWA()">📲 Mensaje WhatsApp</button>
     </div>
     <div id="a-wa-msg" style="display:none;margin-top:14px;">
@@ -468,6 +470,32 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Historial de entregas realizadas</div>
     <div id="a-entregas-list"></div>
   </div>
+  <div class="main" id="atab-conciliacion" style="display:none">
+    <div class="section-title">Conciliación bancaria</div>
+    <div class="section-sub">Pagos registrados por clientes — filtrar por mes</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+        <label>Mes</label>
+        <select id="conc-mes" onchange="renderConciliacion()">
+          <option value="1">Enero</option><option value="2">Febrero</option>
+          <option value="3">Marzo</option><option value="4">Abril</option>
+          <option value="5">Mayo</option><option value="6">Junio</option>
+          <option value="7">Julio</option><option value="8">Agosto</option>
+          <option value="9">Septiembre</option><option value="10">Octubre</option>
+          <option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:100px;">
+        <label>Año</label>
+        <select id="conc-anio" onchange="renderConciliacion()">
+          <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:18px;" onclick="exportarConciliacionExcel()">📊 Excel</button>
+    </div>
+    <div id="conc-contenido"></div>
+  </div>
+
   <div class="main" id="atab-dashboard" style="display:none">
     <div class="section-title">Dashboard</div>
     <div class="section-sub" id="dash-semana-label">Semana actual</div>
@@ -611,6 +639,24 @@ let tasaCambioActual = 0;
 function semanaActual() {
   const d = new Date(), j = new Date(d.getFullYear(), 0, 1);
   return `${d.getFullYear()}-S${Math.ceil(((d - j) / 86400000 + j.getDay() + 1) / 7)}`;
+}
+
+function rangoDeSemana(semStr) {
+  // semStr = "2026-S25"
+  try {
+    const [anio, sNum] = semStr.split('-S');
+    const s = Number(sNum);
+    // Primer día del año
+    const jan1 = new Date(Number(anio), 0, 1);
+    // Lunes de la semana ISO
+    const diasOffset = (s - 1) * 7;
+    const lunes = new Date(jan1);
+    lunes.setDate(jan1.getDate() + diasOffset - (jan1.getDay() === 0 ? 6 : jan1.getDay() - 1));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    const fmt2 = d => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getFullYear()).slice(2)}`;
+    return `${semStr} (${fmt2(lunes)} al ${fmt2(domingo)})`;
+  } catch(e) { return semStr; }
 }
 function fmt(n) { return '$ ' + Number(n || 0).toLocaleString('es-CO'); }
 function prodEmoji(nombre) {
@@ -767,16 +813,22 @@ function clienteTab(t) {
 }
 
 function adminTab(t) {
-  ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'dashboard', 'config'].forEach(x => {
+  ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'conciliacion', 'dashboard', 'config'].forEach(x => {
     const el = document.getElementById('atab-' + x);
     if (el) el.style.display = x === t ? 'block' : 'none';
   });
   document.querySelectorAll('#screen-admin .tab').forEach((el, i) =>
-    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'dashboard', 'config'][i] === t));
+    el.classList.toggle('active', ['lista', 'pedidos', 'clientes', 'entregas', 'ubicacion', 'conciliacion', 'dashboard', 'config'][i] === t));
   if (t === 'pedidos') renderAdminPedidos();
   if (t === 'clientes') renderAdminClientes();
   if (t === 'entregas') renderAdminEntregas();
   if (t === 'ubicacion') renderAdminUbicacion();
+  if (t === 'conciliacion') {
+    const hoy = new Date();
+    document.getElementById('conc-mes').value = hoy.getMonth() + 1;
+    document.getElementById('conc-anio').value = hoy.getFullYear();
+    renderConciliacion();
+  }
   if (t === 'dashboard') renderDashboard();
   if (t === 'config') renderAdminConfig();
 }
@@ -788,7 +840,11 @@ async function sincronizarDeuda(uid) {
   const sem = semanaActual();
   if (u.semana_deuda !== sem) {
     const nuevaAnt = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
-    await sb.from('profiles').update({ deuda_anterior: nuevaAnt, deuda_semana: 0, semana_deuda: sem }).eq('id', uid);
+    await sb.from('profiles').update({
+      deuda_anterior: nuevaAnt,
+      deuda_semana: 0,
+      semana_deuda: sem
+    }).eq('id', uid);
     return { ...u, deuda_anterior: nuevaAnt, deuda_semana: 0, semana_deuda: sem };
   }
   return u;
@@ -823,7 +879,7 @@ async function renderClienteInicio() {
 
 // ── CLIENTE: TIENDA ───────────────────────────────
 async function renderClienteTienda() {
-  document.getElementById('c-lista-semana-label').textContent = `Semana ${semanaActual()}`;
+  document.getElementById('c-lista-semana-label').textContent = rangoDeSemana(semanaActual());
   const el = document.getElementById('c-productos-grid');
 
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
@@ -1289,36 +1345,62 @@ function copiarWA() { navigator.clipboard.writeText(document.getElementById('a-w
 // ── ADMIN: PEDIDOS ────────────────────────────────
 async function renderAdminPedidos() {
   const sem = semanaActual();
-  document.getElementById('a-pedidos-semana-sub').textContent = `Semana ${sem}`;
+  document.getElementById('a-pedidos-semana-sub').textContent = rangoDeSemana(sem);
   loading(true, 'Cargando pedidos...');
   const { data: pedidos } = await sb.from('pedidos').select('*,pedido_items(*),profiles(nombre,apellido,ubicacion,ubicacion_otro)').eq('semana', sem);
   loading(false);
   const el = document.getElementById('a-pedidos-list');
   if (!pedidos || pedidos.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No hay pedidos esta semana</p></div>'; return; }
 
-  // Ordenar por apellido A-Z
-  pedidos.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+  // Agrupar pedidos por cliente + día
+  const grupos = {};
+  pedidos.forEach(p => {
+    const fecha = (p.fecha_pedido || p.created_at || '').slice(0, 10);
+    const key = `${p.cliente_id}|||${fecha}`;
+    if (!grupos[key]) {
+      grupos[key] = {
+        cliente_id: p.cliente_id,
+        profiles: p.profiles,
+        fecha,
+        items: [],
+        total: 0,
+        entregado: p.entregado,
+        telefono_pago: p.telefono_pago,
+        pedidoIds: [],
+        banco: p.banco,
+        hora_pago: p.hora_pago
+      };
+    }
+    grupos[key].items.push(...(p.pedido_items || []));
+    grupos[key].total += p.total || 0;
+    grupos[key].pedidoIds.push(p.id);
+    // Si alguno no está entregado, el grupo queda como pendiente
+    if (!p.entregado) grupos[key].entregado = false;
+  });
+
+  const pedidosAgrupados = Object.values(grupos);
+  pedidosAgrupados.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
 
   window._pedidosData = pedidos;
   const btnExcel = `<button class="btn btn-outline btn-sm" style="margin-bottom:14px;" onclick="exportarPedidosExcel()">📊 Exportar a Excel</button>`;
 
-  // Tabla
   const tabla = `<div class="table-wrap" style="margin-top:4px;">
     <table class="admin-table">
       <thead><tr><th>Apellido</th><th>Nombre</th><th>Ubicación</th><th>Productos</th><th>Total</th><th>Teléfono</th><th>Estado</th><th>Acción</th></tr></thead>
-      <tbody>${pedidos.map(p => {
-        const u = p.profiles;
+      <tbody>${pedidosAgrupados.map(g => {
+        const u = g.profiles;
         const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
-        const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+        const prods = g.items.map(i => `<div style="white-space:nowrap;font-size:12px;">${i.nombre} <strong>x${i.cantidad}</strong>${i.unidad ? ' ' + i.unidad : ''}</div>`).join('');
+        const primerPendiente = g.pedidoIds[0];
         return `<tr>
           <td style="font-weight:600;">${u?.apellido || '—'}</td>
           <td>${u?.nombre || '—'}</td>
           <td><span style="font-size:11px;">📍 ${ubicacion}</span></td>
-          <td style="font-size:12px;">${prods}</td>
-          <td style="font-weight:700;white-space:nowrap;">${fmt(p.total)}</td>
-          <td style="font-size:12px;">${p.telefono_pago || '—'}</td>
-          <td><span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span></td>
-          <td>${!p.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${p.id}','${p.cliente_id}')">Entregar</button>` : '<span style="font-size:11px;color:var(--green);">✓</span>'}</td>
+          <td>${prods}</td>
+          <td style="font-weight:700;white-space:nowrap;">${fmt(g.total)}</td>
+          <td style="font-size:12px;">${g.telefono_pago || '—'}</td>
+          <td><span class="badge ${g.entregado ? 'badge-green' : 'badge-amber'}">${g.entregado ? 'Entregado' : 'Pendiente'}</span></td>
+          <td>${!g.entregado ? `<button class="btn btn-green btn-sm" onclick="openEntregaModal('${primerPendiente}','${g.cliente_id}')">Entregar</button>` : '<span style="font-size:11px;color:var(--green);">✓</span>'}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>
@@ -1349,7 +1431,7 @@ async function exportarPedidosExcel() {
 // ── ADMIN: DASHBOARD ─────────────────────────────
 async function renderDashboard() {
   const sem = semanaActual();
-  document.getElementById('dash-semana-label').textContent = `Semana ${sem}`;
+  document.getElementById('dash-semana-label').textContent = rangoDeSemana(sem);
   loading(true, 'Cargando dashboard...');
 
   // Cargar datos en paralelo
@@ -1490,6 +1572,130 @@ async function renderDashboard() {
         </div>`).join('')}
     </div>` : ''}
   `;
+}
+
+// ── ADMIN: CONCILIACIÓN BANCARIA ─────────────────
+async function renderConciliacion() {
+  const mes = Number(document.getElementById('conc-mes').value);
+  const anio = Number(document.getElementById('conc-anio').value);
+  // Inicializar con mes actual si es primera vez
+  if (!document.getElementById('conc-mes').dataset.init) {
+    const hoy = new Date();
+    document.getElementById('conc-mes').value = hoy.getMonth() + 1;
+    document.getElementById('conc-anio').value = hoy.getFullYear();
+    document.getElementById('conc-mes').dataset.init = '1';
+  }
+  loading(true, 'Cargando pagos...');
+  const { data: pagos } = await sb.from('pagos')
+    .select('*,profiles(nombre,apellido)')
+    .order('created_at', { ascending: true });
+  loading(false);
+
+  const filtrados = (pagos || []).filter(p => {
+    const d = new Date(p.created_at);
+    return d.getMonth() + 1 === mes && d.getFullYear() === anio;
+  });
+
+  window._concData = filtrados;
+  const el = document.getElementById('conc-contenido');
+
+  if (filtrados.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🏦</div><p>No hay pagos registrados en este período</p></div>';
+    return;
+  }
+
+  const totalMes = filtrados.reduce((s, p) => s + (p.monto || 0), 0);
+
+  el.innerHTML = `
+    <div style="background:linear-gradient(135deg,var(--green) 0%,var(--green2) 100%);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:11px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px;">Total cobrado</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:white;margin-top:2px;">${fmtUSD(totalMes)}</div>
+      </div>
+      <div style="font-size:12px;color:rgba(255,255,255,.7);">${filtrados.length} pago${filtrados.length!==1?'s':''}</div>
+    </div>
+    <div class="table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Apellido</th><th>Nombre</th><th>Banco</th><th>Fecha</th><th>Monto (USD)</th><th>Referencia</th></tr></thead>
+        <tbody>${filtrados.map(p => {
+          const u = p.profiles;
+          const fecha = new Date(p.created_at).toLocaleDateString('es-CO', {day:'2-digit',month:'2-digit',year:'numeric'});
+          return `<tr>
+            <td style="font-weight:600;">${u?.apellido || '—'}</td>
+            <td>${u?.nombre || '—'}</td>
+            <td style="font-size:12px;">${p.banco || '—'}</td>
+            <td style="font-size:12px;white-space:nowrap;">${fecha}</td>
+            <td style="font-weight:700;">${fmtUSD(p.monto)}</td>
+            <td style="font-size:12px;color:var(--text2);">${p.descripcion || '—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+async function exportarConciliacionExcel() {
+  const data = window._concData || [];
+  if (data.length === 0) { notif('No hay datos para exportar'); return; }
+  const rows = [['Apellido', 'Nombre', 'Banco', 'Fecha', 'Monto USD', 'Referencia']];
+  data.forEach(p => {
+    const u = p.profiles;
+    rows.push([
+      u?.apellido || '', u?.nombre || '',
+      p.banco || '',
+      new Date(p.created_at).toLocaleDateString('es-CO'),
+      p.monto,
+      p.descripcion || ''
+    ]);
+  });
+  descargarExcel(rows, `conciliacion_${document.getElementById('conc-anio').value}_${document.getElementById('conc-mes').value}.csv`);
+  notif('✓ Archivo descargado');
+}
+
+// ── COPIAR SEMANA ANTERIOR ────────────────────────
+async function copiarSemanaAnterior() {
+  loading(true, 'Buscando semana anterior...');
+  // Obtener lista actual
+  const sem = semanaActual();
+  let { data: listaActual } = await sb.from('lista_semanal').select('*').eq('semana', sem).single();
+
+  // Buscar la lista más reciente anterior a esta semana
+  const { data: listas } = await sb.from('lista_semanal').select('*').neq('semana', sem).order('created_at', { ascending: false }).limit(1);
+  if (!listas || listas.length === 0) { loading(false); notif('No hay semanas anteriores para copiar'); return; }
+
+  const listaAnterior = listas[0];
+  const { data: prodsAnteriores } = await sb.from('productos').select('*').eq('lista_id', listaAnterior.id);
+  if (!prodsAnteriores || prodsAnteriores.length === 0) { loading(false); notif('La semana anterior no tiene productos'); return; }
+
+  // Crear lista actual si no existe
+  if (!listaActual) {
+    const { data: nl } = await sb.from('lista_semanal').insert({ semana: sem, publicada: false }).select().single();
+    listaActual = nl;
+  }
+
+  // Verificar si ya tiene productos
+  const { data: prodsActuales } = await sb.from('productos').select('id').eq('lista_id', listaActual.id);
+  if (prodsActuales && prodsActuales.length > 0) {
+    loading(false);
+    notif('La lista ya tiene productos. Elimínalos primero si querés reemplazarlos.');
+    return;
+  }
+
+  // Copiar productos
+  const nuevosProds = prodsAnteriores.map(p => ({
+    lista_id: listaActual.id,
+    nombre: p.nombre,
+    precio: p.precio,
+    unidad: p.unidad,
+    stock: null, // stock se reinicia
+    imagen_base64: p.imagen_base64,
+    permite_decimales: p.permite_decimales,
+    activo: p.activo
+  }));
+
+  await sb.from('productos').insert(nuevosProds);
+  loading(false);
+  await renderAdminLista();
+  notif(`✓ ${nuevosProds.length} productos copiados de la semana ${listaAnterior.semana}`);
 }
 
 // ── ADMIN: POR UBICACIÓN ──────────────────────────
@@ -1652,7 +1858,7 @@ async function renderAdminClientes() {
       <td><div style="font-weight:600;">${u.apellido} ${u.nombre}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
       <td>${u.cedula || '—'}</td>
       <td>${u.telefono || '—'}</td>
-      <td style="font-weight:700;">${fmt(total)}</td>
+      <td style="font-weight:700;">${fmtUSD(total)}</td>
       <td><span class="badge ${total <= 0 ? 'badge-green' : 'badge-amber'}">${total <= 0 ? 'Al día' : 'Con deuda'}</span></td>
       <td><button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="openResetPass('${u.id}','${u.nombre} ${u.apellido}')">🔑 Resetear</button></td>
       <td><button class="btn btn-outline btn-sm" onclick="openAbonarModal('${u.id}','${u.nombre} ${u.apellido}',${total})">Abonar</button></td>
@@ -1671,7 +1877,7 @@ async function renderAdminEntregas() {
   entregas.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
   el.innerHTML = `<div class="table-wrap">
     <table class="admin-table">
-      <thead><tr><th>Apellido</th><th>Nombre</th><th>Fecha</th><th>Semana</th><th>Productos</th><th>Deuda ant.</th><th>Deuda sem.</th><th>Obs.</th></tr></thead>
+      <thead><tr><th>Apellido</th><th>Nombre</th><th>Fecha</th><th>Semana</th><th>Productos</th><th>Obs.</th></tr></thead>
       <tbody>${entregas.map(e => {
         const u = e.profiles;
         const p = e.pedidos;
@@ -1682,8 +1888,6 @@ async function renderAdminEntregas() {
           <td style="white-space:nowrap;">${e.fecha}</td>
           <td style="font-size:12px;">${e.semana}</td>
           <td style="font-size:12px;">${prods}</td>
-          <td>${fmt(e.deuda_anterior)}</td>
-          <td>${fmt(e.deuda_semana)}</td>
           <td style="font-size:12px;color:var(--text2);">${e.observaciones || '—'}</td>
         </tr>`;
       }).join('')}</tbody>
