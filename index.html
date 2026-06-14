@@ -1390,7 +1390,7 @@ async function renderAdminPedidos() {
       <tbody>${pedidosAgrupados.map(g => {
         const u = g.profiles;
         const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
-        const prods = g.items.map(i => `<div style="white-space:nowrap;font-size:12px;">${i.nombre} <strong>x${i.cantidad}</strong>${i.unidad ? ' ' + i.unidad : ''}</div>`).join('');
+        const prods = g.items.map(i => `<div style="white-space:nowrap;font-size:12px;">${i.nombre} <strong>x${i.cantidad}</strong></div>`).join('');
         const primerPendiente = g.pedidoIds[0];
         return `<tr>
           <td style="font-weight:600;">${u?.apellido || '—'}</td>
