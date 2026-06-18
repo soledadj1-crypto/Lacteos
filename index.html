@@ -427,6 +427,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
           <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente podrá pedir 0.5, 1.5, etc.</p>
         </div>
       </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--cream2);padding:12px;border-radius:var(--radius-sm);">
+        <input type="checkbox" id="a-prod-variantes" style="width:18px;height:18px;cursor:pointer;accent-color:var(--brown);"/>
+        <div>
+          <label for="a-prod-variantes" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Tiene variantes (ej: sabores)</label>
+          <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente elegirá una opción antes de agregar al carrito</p>
+        </div>
+      </div>
       <div class="form-group">
         <label>Imagen de referencia</label>
         <div class="img-upload-area" id="img-upload-area" onclick="document.getElementById('prod-img-input').click()">
@@ -587,6 +594,27 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
 </div>
 
 <!-- MODAL EDITAR PRODUCTO -->
+<!-- MODAL VARIANTES -->
+<div class="modal-overlay" id="modal-variantes">
+  <div class="modal-box">
+    <div class="modal-title">Variantes del producto</div>
+    <div class="modal-sub" id="modal-variantes-sub"></div>
+    <input type="hidden" id="variantes-producto-id"/>
+    <div class="form-group">
+      <label>Agregar nueva variante</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="nueva-variante-nombre" placeholder="Ej: Fresa" style="flex:1;"/>
+        <input type="number" id="nueva-variante-stock" placeholder="Stock" style="width:90px;"/>
+        <button class="btn btn-primary btn-sm" onclick="agregarVariante()">+ Agregar</button>
+      </div>
+    </div>
+    <div id="lista-variantes" style="margin-top:14px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-variantes')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-editar-prod">
   <div class="modal-box">
     <div class="modal-title">Editar producto</div>
@@ -615,6 +643,13 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
       <div>
         <label for="edit-prod-decimales" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Permitir cantidades decimales</label>
         <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente podrá pedir 0.5, 1.5, etc.</p>
+      </div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--cream2);padding:12px;border-radius:var(--radius-sm);">
+      <input type="checkbox" id="edit-prod-variantes" style="width:18px;height:18px;cursor:pointer;accent-color:var(--brown);"/>
+      <div>
+        <label for="edit-prod-variantes" style="font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-transform:none;letter-spacing:0;">Tiene variantes (ej: sabores)</label>
+        <p style="font-size:12px;color:var(--text2);margin-top:2px;">El cliente elegirá una opción antes de agregar al carrito</p>
       </div>
     </div>
     <div class="modal-actions">
@@ -881,7 +916,7 @@ async function renderClienteInicio() {
     const p = pedidos[0];
     document.getElementById('c-ultimo-pedido-detalle').innerHTML =
       `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${new Date(p.created_at).toLocaleDateString('es-CO')} · <span class="badge ${p.entregado ? 'badge-green' : 'badge-amber'}">${p.entregado ? 'Entregado' : 'Pendiente'}</span></div>` +
-      (p.pedido_items || []).map(i => `<div class="pedido-resumen-row"><span>${i.nombre} x${i.cantidad}</span><span>${fmt(i.precio * i.cantidad)}</span></div>`).join('') +
+      (p.pedido_items || []).map(i => `<div class="pedido-resumen-row"><span>${i.nombre}${i.variante ? ' — ' + i.variante : ''} x${i.cantidad}</span><span>${fmt(i.precio * i.cantidad)}</span></div>`).join('') +
       `<div class="pedido-resumen-row total"><span>Total</span><span>${fmt(p.total)}</span></div>`;
   } else card.style.display = 'none';
 }
@@ -903,12 +938,61 @@ async function renderClienteTienda() {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay productos disponibles esta semana.</p></div>';
     return;
   }
+
+  // Cargar variantes de los productos que las tienen
+  const idsConVariantes = productosActuales.filter(p => p.tiene_variantes).map(p => p.id);
+  let variantesPorProducto = {};
+  if (idsConVariantes.length > 0) {
+    const { data: variantes } = await sb.from('producto_variantes').select('*').in('producto_id', idsConVariantes).eq('activo', true);
+    (variantes || []).forEach(v => {
+      if (!variantesPorProducto[v.producto_id]) variantesPorProducto[v.producto_id] = [];
+      variantesPorProducto[v.producto_id].push(v);
+    });
+  }
+  window._variantesPorProducto = variantesPorProducto;
+
   el.innerHTML = productosActuales.map(p => {
     const agotado = p.stock !== null && p.stock !== undefined && Number(p.stock) <= 0;
-    const qty = carrito[p.id] || 0;
     const imgEl = p.imagen_base64
       ? `<img class="prod-card-img" src="${p.imagen_base64}" alt="${p.nombre}" loading="lazy"/>`
       : `<div class="prod-card-img-placeholder">${prodEmoji(p.nombre)}</div>`;
+
+    // PRODUCTO CON VARIANTES (ej: yogurt con sabores)
+    if (p.tiene_variantes) {
+      const vars = variantesPorProducto[p.id] || [];
+      if (vars.length === 0) {
+        return `<div class="prod-card">
+          ${imgEl}
+          <div class="prod-card-body">
+            <div class="prod-card-name">${p.nombre}</div>
+            <div class="prod-card-price">${fmt(p.precio)} / ${p.unidad}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:8px;">Sin opciones disponibles</div>
+          </div>
+        </div>`;
+      }
+      const selectId = `variante-sel-${p.id}`;
+      return `<div class="prod-card">
+        ${imgEl}
+        <div class="prod-card-body">
+          <div class="prod-card-name">${p.nombre}</div>
+          <div class="prod-card-price">${fmt(p.precio)} / ${p.unidad}</div>
+          <select id="${selectId}" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-family:'Nunito',sans-serif;" onchange="actualizarQtyVariante('${p.id}')">
+            ${vars.map(v => {
+              const vAgotado = v.stock !== null && v.stock !== undefined && Number(v.stock) <= 0;
+              return `<option value="${v.id}" ${vAgotado ? 'disabled' : ''}>${v.nombre}${vAgotado ? ' (sin stock)' : v.stock !== null && v.stock !== undefined ? ' — ' + v.stock + ' disp.' : ''}</option>`;
+            }).join('')}
+          </select>
+          <div class="prod-card-qty" id="qtywrap-${p.id}">
+            <button class="qty-btn" onclick="cambiarCarritoVariante('${p.id}',-1)">−</button>
+            <span class="qty-num" id="cqty-${p.id}">0</span>
+            <button class="qty-btn" onclick="cambiarCarritoVariante('${p.id}',1)">+</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // PRODUCTO NORMAL SIN VARIANTES
+    const qty = carrito[p.id] || 0;
     return `<div class="prod-card">
       ${imgEl}
       <div class="prod-card-body">
@@ -929,6 +1013,39 @@ async function renderClienteTienda() {
       </div>
     </div>`;
   }).join('');
+}
+
+// Carrito con variante: la clave es "productoId|||varianteId"
+function claveCarritoVariante(pid) {
+  const sel = document.getElementById(`variante-sel-${pid}`);
+  if (!sel) return null;
+  return `${pid}|||${sel.value}`;
+}
+
+function actualizarQtyVariante(pid) {
+  const clave = claveCarritoVariante(pid);
+  const qty = carrito[clave] || 0;
+  document.getElementById(`cqty-${pid}`).textContent = qty;
+}
+
+function cambiarCarritoVariante(pid, delta) {
+  const p = productosActuales.find(x => x.id === pid);
+  const sel = document.getElementById(`variante-sel-${pid}`);
+  if (!p || !sel || !sel.value) return;
+  const varianteId = sel.value;
+  const variantes = (window._variantesPorProducto || {})[pid] || [];
+  const variante = variantes.find(v => v.id === varianteId);
+  const clave = `${pid}|||${varianteId}`;
+  const cur = carrito[clave] || 0;
+  const nv = Math.max(0, cur + delta);
+  if (variante && variante.stock !== null && variante.stock !== undefined && nv > Number(variante.stock)) {
+    notif('Sin suficiente stock de ' + variante.nombre);
+    return;
+  }
+  if (nv === 0) delete carrito[clave]; else carrito[clave] = nv;
+  document.getElementById(`cqty-${pid}`).textContent = nv;
+  updateCartBadge();
+  if (document.getElementById('cart-drawer').classList.contains('open')) renderCartDrawer();
 }
 
 function cambiarCarrito(pid, delta) {
@@ -957,6 +1074,11 @@ function updateCartBadge() {
 function openCart() { renderCartDrawer(); document.getElementById('cart-overlay').classList.add('active'); document.getElementById('cart-drawer').classList.add('open'); }
 function closeCart() { document.getElementById('cart-overlay').classList.remove('active'); document.getElementById('cart-drawer').classList.remove('open'); }
 
+function parseClaveCarrito(clave) {
+  const partes = clave.split('|||');
+  return { pid: partes[0], varianteId: partes[1] || null };
+}
+
 function renderCartDrawer() {
   const items = Object.entries(carrito).filter(([, q]) => q > 0);
   const el = document.getElementById('cart-items-list');
@@ -966,43 +1088,60 @@ function renderCartDrawer() {
     footer.style.display = 'none'; return;
   }
   let total = 0;
-  el.innerHTML = items.map(([pid, qty]) => {
+  el.innerHTML = items.map(([clave, qty]) => {
+    const { pid, varianteId } = parseClaveCarrito(clave);
     const p = productosActuales.find(x => x.id === pid);
     if (!p) return '';
     const sub = p.precio * qty; total += sub;
     const imgEl = p.imagen_base64
       ? `<img class="cart-item-img" src="${p.imagen_base64}" alt="${p.nombre}" style="display:block;"/>`
       : `<div class="cart-item-img">${prodEmoji(p.nombre)}</div>`;
+    let nombreVariante = '';
+    if (varianteId) {
+      const variantes = (window._variantesPorProducto || {})[pid] || [];
+      const v = variantes.find(x => x.id === varianteId);
+      nombreVariante = v ? ` — ${v.nombre}` : '';
+    }
+    const btnDecremento = varianteId ? `cambiarCarritoVariante('${pid}',-1)` : `cambiarCarrito('${pid}',-1)`;
+    const btnIncremento = varianteId ? `cambiarCarritoVariante('${pid}',1)` : `cambiarCarrito('${pid}',1)`;
     return `<div class="cart-item">
       ${imgEl}
       <div class="cart-item-info">
-        <div class="cart-item-name">${p.nombre}</div>
+        <div class="cart-item-name">${p.nombre}${nombreVariante}</div>
         <div class="cart-item-price">${fmt(p.precio)} / ${p.unidad}</div>
         <div class="cart-item-qty">
-          <button class="qty-btn" style="width:26px;height:26px;font-size:14px;" onclick="cambiarCarrito('${pid}',-1)">−</button>
+          <button class="qty-btn" style="width:26px;height:26px;font-size:14px;" onclick="${btnDecremento}">−</button>
           <span class="qty-num">${qty}</span>
-          <button class="qty-btn" style="width:26px;height:26px;font-size:14px;" onclick="cambiarCarrito('${pid}',1)">+</button>
+          <button class="qty-btn" style="width:26px;height:26px;font-size:14px;" onclick="${btnIncremento}">+</button>
         </div>
         <div class="cart-item-sub">${fmt(sub)}</div>
       </div>
-      <button class="cart-remove" onclick="quitarDelCarrito('${pid}')">🗑</button>
+      <button class="cart-remove" onclick="quitarDelCarrito('${clave}')">🗑</button>
     </div>`;
   }).join('');
   document.getElementById('cart-total-val').textContent = fmt(total);
   footer.style.display = 'block';
 }
 
-function quitarDelCarrito(pid) {
-  delete carrito[pid];
+function quitarDelCarrito(clave) {
+  delete carrito[clave];
+  const { pid } = parseClaveCarrito(clave);
   const el = document.getElementById('cqty-' + pid);
   if (el) el.textContent = 0;
   updateCartBadge(); renderCartDrawer();
 }
 
 async function confirmarPedido() {
-  const items = Object.entries(carrito).filter(([, q]) => q > 0).map(([pid, qty]) => {
+  const items = Object.entries(carrito).filter(([, q]) => q > 0).map(([clave, qty]) => {
+    const { pid, varianteId } = parseClaveCarrito(clave);
     const p = productosActuales.find(x => x.id === pid);
-    return { pid, nombre: p.nombre, precio: p.precio, qty, unidad: p.unidad || '', imagen_base64: p.imagen_base64 || null };
+    let nombreVariante = '';
+    if (varianteId) {
+      const variantes = (window._variantesPorProducto || {})[pid] || [];
+      const v = variantes.find(x => x.id === varianteId);
+      nombreVariante = v ? v.nombre : '';
+    }
+    return { pid, varianteId, varianteNombre: nombreVariante, nombre: p.nombre, precio: p.precio, qty, unidad: p.unidad || '', imagen_base64: p.imagen_base64 || null };
   });
   if (items.length === 0) return;
   const total = items.reduce((s, i) => s + i.precio * i.qty, 0);
@@ -1012,7 +1151,7 @@ async function confirmarPedido() {
   }).select().single();
   if (pe) { loading(false); notif('Error al guardar pedido: ' + pe.message); return; }
   const { error: ie } = await sb.from('pedido_items').insert(items.map(i => ({
-    pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, unidad: i.unidad, imagen_base64: i.imagen_base64
+    pedido_id: pedido.id, producto_id: i.pid, nombre: i.nombre, precio: i.precio, cantidad: i.qty, unidad: i.unidad, variante: i.varianteNombre, imagen_base64: i.imagen_base64
   })));
   if (ie) { loading(false); notif('Error al guardar productos: ' + ie.message); return; }
   const u = await sincronizarDeuda(currentUser.id);
@@ -1020,9 +1159,18 @@ async function confirmarPedido() {
   await sb.from('profiles').update({ deuda_semana: nuevaDeudaSem, semana_deuda: semanaActual() }).eq('id', currentUser.id);
   currentUser.deuda_semana = nuevaDeudaSem;
   for (const item of items) {
-    const p = productosActuales.find(x => x.id === item.pid);
-    if (p && p.stock !== null && p.stock !== undefined) {
-      await sb.from('productos').update({ stock: Math.max(0, Number(p.stock) - item.qty) }).eq('id', item.pid);
+    if (item.varianteId) {
+      // Descuenta stock de la variante específica
+      const variantes = (window._variantesPorProducto || {})[item.pid] || [];
+      const v = variantes.find(x => x.id === item.varianteId);
+      if (v && v.stock !== null && v.stock !== undefined) {
+        await sb.from('producto_variantes').update({ stock: Math.max(0, Number(v.stock) - item.qty) }).eq('id', item.varianteId);
+      }
+    } else {
+      const p = productosActuales.find(x => x.id === item.pid);
+      if (p && p.stock !== null && p.stock !== undefined) {
+        await sb.from('productos').update({ stock: Math.max(0, Number(p.stock) - item.qty) }).eq('id', item.pid);
+      }
     }
   }
   loading(false);
@@ -1194,7 +1342,7 @@ function exportarHistorialExcel() {
   const { pedidos, pagos } = window._historialData || { pedidos: [], pagos: [] };
   const rows = [['Tipo', 'Fecha', 'Detalle', 'Monto', 'Banco', 'Teléfono', 'Fecha Pago', 'Hora', 'Estado']];
   pedidos.forEach(p => {
-    const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    const prods = (p.pedido_items || []).map(i => `${i.nombre}${i.variante ? ' — ' + i.variante : ''} x${i.cantidad}`).join(', ');
     rows.push(['Pedido', new Date(p.created_at).toLocaleDateString('es-CO'), prods, p.total, p.banco || '', p.telefono_pago || '', p.fecha_pago || '', p.hora_pago || '', p.entregado ? 'Entregado' : 'Pendiente']);
   });
   pagos.forEach(p => {
@@ -1247,10 +1395,11 @@ async function renderAdminLista() {
       <div class="prod-list-info">
         <div class="prod-list-name">${p.nombre}</div>
         <div class="prod-list-sub">${fmt(p.precio)} / ${p.unidad} · ${stockText}${p.permite_decimales ? ' · <span style="color:var(--brown2);">½ permitido</span>' : ''}</div>
-        <div style="font-size:11px;color:${activoColor};margin-top:2px;font-weight:600;">${activoLabel}</div>
+        <div style="font-size:11px;color:${activoColor};margin-top:2px;font-weight:600;">${activoLabel}${p.tiene_variantes ? ' · <span style="color:var(--brown2);">🎨 con variantes</span>' : ''}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
         <button class="btn btn-outline btn-sm" onclick="abrirEditarProducto('${p.id}')">✏️ Editar</button>
+        ${p.tiene_variantes ? `<button class="btn btn-sm" style="background:#FEF3C7;color:#92400E;" onclick="abrirVariantes('${p.id}','${p.nombre.replace(/'/g,"\\'")}')">🎨 Variantes</button>` : ''}
         <button class="btn btn-sm" style="background:${p.activo ? '#FEF3C7' : 'var(--green3)'};color:${p.activo ? '#92400E' : 'var(--green)'};" onclick="toggleActivoProducto('${p.id}',${p.activo})">${p.activo ? 'Desactivar' : 'Activar'}</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarProducto('${p.id}')">🗑</button>
       </div>
@@ -1267,6 +1416,7 @@ function abrirEditarProducto(id) {
   document.getElementById('edit-prod-unidad').value = p.unidad;
   document.getElementById('edit-prod-stock').value = p.stock !== null && p.stock !== undefined ? p.stock : '';
   document.getElementById('edit-prod-decimales').checked = p.permite_decimales || false;
+  document.getElementById('edit-prod-variantes').checked = p.tiene_variantes || false;
   // Mostrar imagen actual
   pendingEditImg = p.imagen_base64 || null;
   const area = document.getElementById('edit-img-upload-area');
@@ -1308,12 +1458,14 @@ async function guardarEdicionProducto() {
   const unidad = document.getElementById('edit-prod-unidad').value;
   const stockVal = document.getElementById('edit-prod-stock').value;
   const decimales = document.getElementById('edit-prod-decimales').checked;
+  const tieneVariantes = document.getElementById('edit-prod-variantes').checked;
   if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
   loading(true, 'Guardando...');
   await sb.from('productos').update({
     nombre, precio, unidad,
     stock: stockVal === '' ? null : Number(stockVal),
     permite_decimales: decimales,
+    tiene_variantes: tieneVariantes,
     imagen_base64: pendingEditImg !== undefined ? pendingEditImg : undefined
   }).eq('id', id);
   loading(false);
@@ -1321,6 +1473,70 @@ async function guardarEdicionProducto() {
   closeModal('modal-editar-prod');
   await renderAdminLista();
   notif('✓ Producto actualizado');
+}
+
+// ── GESTIÓN DE VARIANTES (ej: sabores de yogurt) ──
+let variantesProductoActual = null;
+
+async function abrirVariantes(productoId, nombreProducto) {
+  variantesProductoActual = productoId;
+  document.getElementById('variantes-producto-id').value = productoId;
+  document.getElementById('modal-variantes-sub').textContent = `Producto: ${nombreProducto}`;
+  document.getElementById('nueva-variante-nombre').value = '';
+  document.getElementById('nueva-variante-stock').value = '';
+  await renderListaVariantes(productoId);
+  document.getElementById('modal-variantes').classList.add('active');
+}
+
+async function renderListaVariantes(productoId) {
+  const el = document.getElementById('lista-variantes');
+  el.innerHTML = '<p style="font-size:13px;color:var(--text2);">Cargando...</p>';
+  const { data: variantes } = await sb.from('producto_variantes').select('*').eq('producto_id', productoId).order('nombre');
+  if (!variantes || variantes.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="padding:20px;"><p style="font-size:13px;">Aún no hay variantes. Agrega la primera arriba 👆</p></div>';
+    return;
+  }
+  el.innerHTML = variantes.map(v => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--cream2);border-radius:var(--radius-sm);margin-bottom:6px;opacity:${v.activo?'1':'0.5'};">
+      <div>
+        <span style="font-weight:600;font-size:14px;">${v.nombre}</span>
+        <span style="font-size:12px;color:var(--text2);margin-left:8px;">${v.stock !== null && v.stock !== undefined ? '📦 ' + v.stock + ' disp.' : 'Sin límite'}</span>
+        ${!v.activo ? '<span style="font-size:11px;color:var(--red);margin-left:6px;">(inactiva)</span>' : ''}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" style="background:${v.activo?'#FEF3C7':'var(--green3)'};color:${v.activo?'#92400E':'var(--green)'};padding:4px 10px;font-size:11px;" onclick="toggleActivoVariante('${v.id}',${v.activo})">${v.activo?'Desactivar':'Activar'}</button>
+        <button class="btn btn-danger btn-sm" style="padding:4px 10px;font-size:11px;" onclick="eliminarVariante('${v.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+async function agregarVariante() {
+  const productoId = document.getElementById('variantes-producto-id').value;
+  const nombre = document.getElementById('nueva-variante-nombre').value.trim();
+  const stockVal = document.getElementById('nueva-variante-stock').value;
+  if (!nombre) { notif('Ingresa el nombre de la variante (ej: Fresa)'); return; }
+  loading(true, 'Agregando variante...');
+  await sb.from('producto_variantes').insert({
+    producto_id: productoId,
+    nombre,
+    stock: stockVal === '' ? null : Number(stockVal)
+  });
+  loading(false);
+  document.getElementById('nueva-variante-nombre').value = '';
+  document.getElementById('nueva-variante-stock').value = '';
+  await renderListaVariantes(productoId);
+  notif('✓ Variante agregada');
+}
+
+async function toggleActivoVariante(id, actual) {
+  await sb.from('producto_variantes').update({ activo: !actual }).eq('id', id);
+  await renderListaVariantes(variantesProductoActual);
+}
+
+async function eliminarVariante(id) {
+  await sb.from('producto_variantes').delete().eq('id', id);
+  await renderListaVariantes(variantesProductoActual);
+  notif('Variante eliminada');
 }
 
 // ── CONCILIACIÓN DE PAGOS ─────────────────────────
@@ -1359,6 +1575,7 @@ async function agregarProducto() {
   const unidad = document.getElementById('a-prod-unidad').value;
   const stockVal = document.getElementById('a-prod-stock').value;
   const decimales = document.getElementById('a-prod-decimales').checked;
+  const tieneVariantes = document.getElementById('a-prod-variantes').checked;
   if (!nombre || precio <= 0) { notif('Completa nombre y precio'); return; }
   loading(true, 'Guardando producto...');
   let lista = (await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single()).data;
@@ -1370,13 +1587,15 @@ async function agregarProducto() {
     lista_id: lista.id, nombre, precio, unidad,
     stock: stockVal === '' ? null : Number(stockVal),
     imagen_base64: pendingImg || null,
-    permite_decimales: decimales
+    permite_decimales: decimales,
+    tiene_variantes: tieneVariantes
   });
   loading(false);
   document.getElementById('a-prod-nombre').value = '';
   document.getElementById('a-prod-precio').value = '';
   document.getElementById('a-prod-stock').value = '';
   document.getElementById('a-prod-decimales').checked = false;
+  document.getElementById('a-prod-variantes').checked = false;
   pendingImg = null;
   const area = document.getElementById('img-upload-area');
   area.className = 'img-upload-area';
@@ -1464,7 +1683,7 @@ async function renderAdminPedidos() {
       <tbody>${pedidosAgrupados.map(g => {
         const u = g.profiles;
         const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '—' : '—';
-        const prods = g.items.map(i => `<div style="white-space:nowrap;font-size:12px;">${i.nombre} <strong>x${i.cantidad}</strong></div>`).join('');
+        const prods = g.items.map(i => `<div style="white-space:nowrap;font-size:12px;">${i.nombre}${i.variante ? ' — ' + i.variante : ''} <strong>x${i.cantidad}</strong></div>`).join('');
         const primerPendiente = g.pedidoIds[0];
         return `<tr>
           <td style="font-weight:600;">${u?.apellido || '—'}</td>
@@ -1490,7 +1709,7 @@ async function exportarPedidosExcel() {
   pedidos.forEach(p => {
     const u = p.profiles;
     const ubicacion = u ? (u.ubicacion === 'OTRO' ? u.ubicacion_otro : u.ubicacion) || '' : '';
-    const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+    const prods = (p.pedido_items || []).map(i => `${i.nombre}${i.variante ? ' — ' + i.variante : ''} x${i.cantidad}`).join(', ');
     rows.push([
       u ? u.nombre + ' ' + u.apellido : '', ubicacion, prods, p.total,
       p.banco || '', p.telefono_pago || '', p.fecha_pago || '', p.hora_pago || '',
@@ -1916,7 +2135,7 @@ function filtrarUbicacion(ub) {
           <thead><tr><th>Apellido</th><th>Nombre</th><th>Productos</th><th>Total</th><th>Estado</th></tr></thead>
           <tbody>${pedidosFiltrados.map(p => {
             const u = p.profiles;
-            const prods = (p.pedido_items || []).map(i => `${i.nombre} x${i.cantidad}`).join(', ');
+            const prods = (p.pedido_items || []).map(i => `${i.nombre}${i.variante ? ' — ' + i.variante : ''} x${i.cantidad}`).join(', ');
             return `<tr>
               <td style="font-weight:600;">${u?.apellido || '—'}</td>
               <td>${u?.nombre || '—'}</td>
