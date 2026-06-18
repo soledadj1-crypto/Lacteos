@@ -468,7 +468,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Gestión de cuentas y deudas — ordenados alfabéticamente</div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Contraseña</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Aut. deuda</th><th>Contraseña</th><th></th></tr></thead>
         <tbody id="a-clientes-tbody"></tbody>
       </table>
     </div>
@@ -926,6 +926,21 @@ async function renderClienteInicio() {
 async function renderClienteTienda() {
   document.getElementById('c-lista-semana-label').textContent = rangoDeSemana(semanaActual());
   const el = document.getElementById('c-productos-grid');
+
+  // Validar deuda de semana anterior
+  const u = await sincronizarDeuda(currentUser.id);
+  if (u) currentUser = { ...currentUser, ...u };
+  if ((currentUser.deuda_anterior || 0) > 0 && !currentUser.autorizado_con_deuda) {
+    el.innerHTML = `<div style="grid-column:1/-1;background:linear-gradient(135deg,var(--red) 0%,#9B1C1C 100%);border-radius:var(--radius);padding:24px;text-align:center;color:white;">
+      <div style="font-size:40px;margin-bottom:10px;">🔒</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px;">No puedes realizar pedidos por ahora</div>
+      <div style="font-size:13px;opacity:.85;margin-bottom:16px;">Tienes una deuda pendiente de ${fmtUSD(currentUser.deuda_anterior)} de semanas anteriores.</div>
+      <div style="background:rgba(255,255,255,.15);border-radius:var(--radius-sm);padding:16px;font-size:13px;line-height:1.6;font-style:italic;">
+        "Estimados compañeros, pagar a tiempo es la mejor forma de asegurar que el sabor y la calidad de nuestros productos sigan en tu mesa. ¡Gracias por cultivar una relación de confianza!"
+      </div>
+    </div>`;
+    return;
+  }
 
   const { data: lista } = await sb.from('lista_semanal').select('*').eq('semana', semanaActual()).single();
   if (!lista || !lista.publicada) {
@@ -2165,12 +2180,19 @@ async function renderAdminClientes() {
   clientes.sort((a, b) => (a.apellido || '').localeCompare(b.apellido || '', 'es'));
   tbody.innerHTML = clientes.map(u => {
     const total = (u.deuda_anterior || 0) + (u.deuda_semana || 0);
+    const autorizado = u.autorizado_con_deuda || false;
     return `<tr>
       <td><div style="font-weight:600;">${u.apellido} ${u.nombre}</div><div style="font-size:11px;color:var(--text2);">@${u.username}</div></td>
       <td>${u.cedula || '—'}</td>
       <td>${u.telefono || '—'}</td>
       <td style="font-weight:700;">${fmtUSD(total)}</td>
       <td><span class="badge ${total <= 0 ? 'badge-green' : 'badge-amber'}">${total <= 0 ? 'Al día' : 'Con deuda'}</span></td>
+      <td style="text-align:center;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;justify-content:center;">
+          <input type="checkbox" ${autorizado ? 'checked' : ''} onchange="toggleAutorizacion('${u.id}',${autorizado})" style="width:18px;height:18px;cursor:pointer;accent-color:var(--green);"/>
+          <span style="font-size:11px;color:${autorizado?'var(--green)':'var(--text2)'};">${autorizado?'Sí':'No'}</span>
+        </label>
+      </td>
       <td><button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="openResetPass('${u.id}','${u.nombre} ${u.apellido}')">🔑 Resetear</button></td>
       <td><button class="btn btn-outline btn-sm" onclick="openAbonarModal('${u.id}','${u.nombre} ${u.apellido}',${total})">Abonar</button></td>
     </tr>`;
