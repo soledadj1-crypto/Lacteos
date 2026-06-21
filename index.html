@@ -272,6 +272,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="tab" onclick="clienteTab('tienda')">Tienda</div>
     <div class="tab" onclick="clienteTab('pagar')">Pagar</div>
     <div class="tab" onclick="clienteTab('historial')">Historial</div>
+    <div class="tab" onclick="clienteTab('perfil')">Mi Perfil</div>
   </div>
   <div class="main" id="ctab-inicio">
     <div class="deuda-box">
@@ -354,7 +355,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
 
     <div class="card">
       <div class="form-group"><label>Banco</label><input type="text" id="pedido-banco" placeholder="Ej: Banesco, Mercantil, Venezuela..."/></div>
-      <div class="form-group"><label>Teléfono de pago</label><input type="tel" id="pedido-tel-pago" placeholder="04141234567"/></div>
+      <div class="form-group"><label>Teléfono de pago</label><input type="tel" id="pedido-tel-pago" placeholder="04141234567" readonly style="background:var(--cream2);color:var(--text2);"/></div>
       <div class="form-row">
         <div class="form-group"><label>Fecha de pago</label><input type="date" id="pedido-fecha-pago"/></div>
         <div class="form-group"><label>Hora de pago</label><input type="time" id="pedido-hora-pago"/></div>
@@ -384,6 +385,44 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-title">Mi historial</div>
     <div class="section-sub">Pedidos y pagos registrados</div>
     <div id="c-historial-list"></div>
+  </div>
+  <div class="main" id="ctab-perfil" style="display:none">
+    <div class="section-title">Mi perfil</div>
+    <div class="section-sub">Datos de contacto — puedes actualizarlos cuando quieras</div>
+    <div class="card">
+      <div class="form-group">
+        <label>Nombre</label>
+        <input type="text" id="perfil-nombre" disabled style="background:var(--cream2);color:var(--text2);"/>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px;">Para cambiar tu nombre contacta al administrador.</p>
+      </div>
+      <div class="form-group">
+        <label>Cédula</label>
+        <input type="text" id="perfil-cedula" disabled style="background:var(--cream2);color:var(--text2);"/>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px;">Para cambiar tu cédula contacta al administrador.</p>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group">
+        <label>Teléfono</label>
+        <input type="tel" id="perfil-telefono" placeholder="04141234567"/>
+      </div>
+      <div class="form-group">
+        <label>Ubicación de despacho</label>
+        <select id="perfil-ubicacion" onchange="toggleUbicacionPerfilOtro()">
+          <option value="CANTV">CANTV</option>
+          <option value="PDVSA">PDVSA</option>
+          <option value="TORRE SUR">TORRE SUR</option>
+          <option value="EMPRESARIAL">EMPRESARIAL</option>
+          <option value="EL RECREO">EL RECREO</option>
+          <option value="EL RETIRO">EL RETIRO</option>
+          <option value="OTRO">OTRO</option>
+        </select>
+      </div>
+      <div class="form-group" id="perfil-ubicacion-otro-wrap" style="display:none">
+        <label>Especifica tu ubicación</label>
+        <input type="text" id="perfil-ubicacion-otro" placeholder="Escribe tu ubicación"/>
+      </div>
+      <button class="btn btn-green btn-full" onclick="guardarPerfilCliente()">Guardar cambios</button>
+    </div>
   </div>
 </div>
 
@@ -802,9 +841,18 @@ async function doRegister() {
   if (!ubicacion) { showErr('Selecciona tu ubicación de despacho'); return; }
   if (ubicacion === 'OTRO' && !ubicacionOtro) { showErr('Especifica tu ubicación'); return; }
   if (pass.length < 6) { showErr('La contraseña debe tener al menos 6 caracteres'); return; }
-  loading(true, 'Creando cuenta...');
+  loading(true, 'Verificando datos...');
   const { data: exists } = await sb.from('profiles').select('id').eq('username', username).single();
   if (exists) { loading(false); showErr('Ese usuario ya existe'); return; }
+  if (cedula) {
+    const { data: existsCedula } = await sb.from('profiles').select('id').eq('cedula', cedula).maybeSingle();
+    if (existsCedula) { loading(false); showErr('Ya existe un cliente registrado con esa cédula'); return; }
+  }
+  if (tel) {
+    const { data: existsTel } = await sb.from('profiles').select('id').eq('telefono', tel).maybeSingle();
+    if (existsTel) { loading(false); showErr('Ya existe un cliente registrado con ese teléfono'); return; }
+  }
+  loading(true, 'Creando cuenta...');
   const sem = semanaActual();
   const { data, error } = await sb.from('profiles').insert({
     username, password_hash: pass, nombre, apellido, cedula, telefono: tel,
@@ -847,14 +895,50 @@ async function showCliente() {
 }
 
 function clienteTab(t) {
-  ['inicio', 'tienda', 'pagar', 'historial'].forEach(x =>
+  ['inicio', 'tienda', 'pagar', 'historial', 'perfil'].forEach(x =>
     document.getElementById('ctab-' + x).style.display = x === t ? 'block' : 'none');
   document.querySelectorAll('#screen-cliente .tab').forEach((el, i) =>
-    el.classList.toggle('active', ['inicio', 'tienda', 'pagar', 'historial'][i] === t));
+    el.classList.toggle('active', ['inicio', 'tienda', 'pagar', 'historial', 'perfil'][i] === t));
   if (t === 'tienda') renderClienteTienda();
   if (t === 'historial') renderClienteHistorial();
   if (t === 'pagar') renderClientePagar();
   if (t === 'inicio') renderClienteInicio();
+  if (t === 'perfil') renderClientePerfil();
+}
+
+// ── CLIENTE: MI PERFIL ────────────────────────────
+function renderClientePerfil() {
+  document.getElementById('perfil-nombre').value = `${currentUser.nombre} ${currentUser.apellido}`;
+  document.getElementById('perfil-cedula').value = currentUser.cedula || '';
+  document.getElementById('perfil-telefono').value = currentUser.telefono || '';
+  document.getElementById('perfil-ubicacion').value = currentUser.ubicacion || 'CANTV';
+  document.getElementById('perfil-ubicacion-otro').value = currentUser.ubicacion_otro || '';
+  toggleUbicacionPerfilOtro();
+}
+
+function toggleUbicacionPerfilOtro() {
+  const val = document.getElementById('perfil-ubicacion').value;
+  document.getElementById('perfil-ubicacion-otro-wrap').style.display = val === 'OTRO' ? 'block' : 'none';
+}
+
+async function guardarPerfilCliente() {
+  const tel = document.getElementById('perfil-telefono').value.trim();
+  const ubicacion = document.getElementById('perfil-ubicacion').value;
+  const ubicacionOtro = document.getElementById('perfil-ubicacion-otro').value.trim();
+  if (!tel) { notif('Ingresa tu teléfono'); return; }
+  if (ubicacion === 'OTRO' && !ubicacionOtro) { notif('Especifica tu ubicación'); return; }
+  loading(true, 'Guardando cambios...');
+  // Validar que el teléfono no esté en uso por otro cliente
+  if (tel !== currentUser.telefono) {
+    const { data: existsTel } = await sb.from('profiles').select('id').eq('telefono', tel).neq('id', currentUser.id).maybeSingle();
+    if (existsTel) { loading(false); notif('Ese teléfono ya está registrado por otro cliente'); return; }
+  }
+  await sb.from('profiles').update({ telefono: tel, ubicacion, ubicacion_otro: ubicacionOtro }).eq('id', currentUser.id);
+  currentUser.telefono = tel;
+  currentUser.ubicacion = ubicacion;
+  currentUser.ubicacion_otro = ubicacionOtro;
+  loading(false);
+  notif('✓ Datos actualizados correctamente');
 }
 
 function adminTab(t) {
@@ -946,6 +1030,21 @@ async function renderClienteTienda() {
   if (!lista || !lista.publicada) {
     el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No hay lista publicada esta semana.<br>¡Vuelve pronto!</p></div>';
     return;
+  }
+  // La lista solo es visible desde la publicación hasta el viernes siguiente (23:59)
+  if (lista.fecha_publicacion) {
+    const fechaPub = new Date(lista.fecha_publicacion);
+    const limite = new Date(fechaPub);
+    // Calcular el viernes siguiente a la fecha de publicación
+    const diaSemana = limite.getDay(); // 0=domingo,1=lunes,...5=viernes,6=sábado
+    let diasHastaViernes = (5 - diaSemana + 7) % 7;
+    if (diasHastaViernes === 0 && limite.getTime() === fechaPub.getTime()) diasHastaViernes = 7; // si publicó un viernes, el límite es el próximo viernes
+    limite.setDate(limite.getDate() + diasHastaViernes);
+    limite.setHours(23, 59, 59, 999);
+    if (new Date() > limite) {
+      el.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>La lista de esta semana ya no está disponible.<br>¡Vuelve el próximo lunes!</p></div>';
+      return;
+    }
   }
   listaActual = lista;
   const { data: prods } = await sb.from('productos').select('*').eq('lista_id', lista.id).eq('activo', true);
@@ -1159,7 +1258,7 @@ async function confirmarPedido() {
     }
     return { pid, varianteId, varianteNombre: nombreVariante, nombre: p.nombre, precio: p.precio, qty, unidad: p.unidad || '', imagen_base64: p.imagen_base64 || null };
   });
-  if (items.length === 0) return;
+  if (items.length === 0) { notif('Agrega al menos un producto antes de confirmar el pedido'); return; }
   const total = items.reduce((s, i) => s + i.precio * i.qty, 0);
   loading(true, 'Registrando pedido...');
   const { data: pedido, error: pe } = await sb.from('pedidos').insert({
@@ -1201,8 +1300,8 @@ function renderClientePagar() {
   document.getElementById('pago-monto-manual').value = '';
   document.getElementById('pago-desc').value = '';
   document.getElementById('pedido-banco').value = '';
-  document.getElementById('pedido-tel-pago').value = '';
-  document.getElementById('pedido-fecha-pago').value = '';
+  document.getElementById('pedido-tel-pago').value = currentUser.telefono || '';
+  document.getElementById('pedido-fecha-pago').value = new Date().toISOString().slice(0, 10);
   document.getElementById('pedido-hora-pago').value = '';
   document.getElementById('pago-preview').style.display = 'none';
   document.getElementById('pago-conversion').style.display = 'none';
@@ -1634,9 +1733,9 @@ async function publicarLista() {
   const { data: prods } = await sb.from('productos').select('id').eq('lista_id', lista.id);
   if (!prods || prods.length === 0) { notif('Agregá al menos un producto'); return; }
   loading(true, 'Publicando lista...');
-  await sb.from('lista_semanal').update({ publicada: true }).eq('id', lista.id);
+  await sb.from('lista_semanal').update({ publicada: true, fecha_publicacion: new Date().toISOString() }).eq('id', lista.id);
   loading(false);
-  notif('✓ Lista publicada. Los clientes ya pueden hacer pedidos.');
+  notif('✓ Lista publicada. Los clientes podrán verla hasta el viernes.');
 }
 
 async function generarMensajeWA() {
