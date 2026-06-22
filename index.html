@@ -507,7 +507,7 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="section-sub">Gestión de cuentas y deudas — ordenados alfabéticamente</div>
     <div class="table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Aut. Compra</th><th>Contraseña</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Deuda</th><th>Estado</th><th>Aut. Compra</th><th>Contraseña</th><th></th><th></th></tr></thead>
         <tbody id="a-clientes-tbody"></tbody>
       </table>
     </div>
@@ -515,6 +515,27 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
   <div class="main" id="atab-entregas" style="display:none">
     <div class="section-title">Registro de entregas</div>
     <div class="section-sub">Historial de entregas realizadas</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+        <label>Mes</label>
+        <select id="entregas-mes" onchange="renderAdminEntregas()">
+          <option value="0">Todos</option>
+          <option value="1">Enero</option><option value="2">Febrero</option>
+          <option value="3">Marzo</option><option value="4">Abril</option>
+          <option value="5">Mayo</option><option value="6">Junio</option>
+          <option value="7">Julio</option><option value="8">Agosto</option>
+          <option value="9">Septiembre</option><option value="10">Octubre</option>
+          <option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:100px;">
+        <label>Año</label>
+        <select id="entregas-anio" onchange="renderAdminEntregas()">
+          <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+        </select>
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:18px;" onclick="exportarEntregasExcel()">📊 Excel</button>
+    </div>
     <div id="a-entregas-list"></div>
   </div>
   <div class="main" id="atab-conciliacion" style="display:none">
@@ -599,6 +620,18 @@ h1,h2,h3{font-family:'Playfair Display',serif;}
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-entrega')">Cancelar</button>
       <button class="btn btn-green" onclick="confirmarEntrega()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR ELIMINAR CLIENTE -->
+<div class="modal-overlay" id="modal-confirm-eliminar">
+  <div class="modal-box">
+    <div class="modal-title">⚠️ Eliminar cliente</div>
+    <div class="modal-sub" id="confirm-eliminar-texto" style="line-height:1.6;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-confirm-eliminar')">Cancelar</button>
+      <button class="btn btn-danger" onclick="ejecutarEliminarCliente()">Sí, eliminar</button>
     </div>
   </div>
 </div>
@@ -1854,7 +1887,8 @@ async function renderDashboard() {
 
   // ── MÉTRICAS SEMANA ACTUAL ──
   const pedSem = pedidosSem || [];
-  const totalSem = pedSem.reduce((s, p) => s + (p.total || 0), 0);
+  const totalPedidosSem = pedSem.reduce((s, p) => s + (p.total || 0), 0);
+  const totalFacturadoSem = (pagos || []).filter(p => p.semana === sem && p.estado === 'facturado').reduce((s, p) => s + (p.monto || 0), 0);
   const entregadosSem = pedSem.filter(p => p.entregado).length;
   const tasaEntrega = pedSem.length > 0 ? Math.round(entregadosSem / pedSem.length * 100) : 0;
   const totalDeuda = (clientes || []).reduce((s, c) => s + (c.deuda_anterior || 0) + (c.deuda_semana || 0), 0);
@@ -1904,10 +1938,12 @@ async function renderDashboard() {
       <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Pedidos semana</div>
         <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--brown);margin:4px 0;">${pedSem.length}</div>
+        <div style="font-size:11px;color:var(--text2);">por ${fmtUSD(totalPedidosSem)}</div>
       </div>
       <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Total facturado</div>
-        <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--brown);margin:4px 0;">${fmt(totalSem)}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;color:var(--green);margin:4px 0;">${fmtUSD(totalFacturadoSem)}</div>
+        <div style="font-size:11px;color:var(--text2);">pagos conciliados</div>
       </div>
       <div style="background:var(--cream2);border-radius:var(--radius-sm);padding:14px;text-align:center;">
         <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;">Tasa de entrega</div>
@@ -2294,26 +2330,53 @@ async function renderAdminClientes() {
       </td>
       <td><button class="btn btn-outline btn-sm" style="font-size:11px;" onclick="openResetPass('${u.id}','${u.nombre} ${u.apellido}')">🔑 Resetear</button></td>
       <td><button class="btn btn-outline btn-sm" onclick="openAbonarModal('${u.id}','${u.nombre} ${u.apellido}',${total})">Abonar</button></td>
+      <td><button class="btn btn-danger btn-sm" onclick="confirmarEliminarCliente('${u.id}','${u.nombre} ${u.apellido}')">🗑 Eliminar</button></td>
     </tr>`;
   }).join('');
 }
 
 // ── ADMIN: ENTREGAS ───────────────────────────────
 async function renderAdminEntregas() {
+  // Inicializar mes/año actual la primera vez
+  if (!document.getElementById('entregas-mes').dataset.init) {
+    const hoy = new Date();
+    document.getElementById('entregas-mes').value = hoy.getMonth() + 1;
+    document.getElementById('entregas-anio').value = hoy.getFullYear();
+    document.getElementById('entregas-mes').dataset.init = '1';
+  }
+  const mes = Number(document.getElementById('entregas-mes').value);
+  const anio = Number(document.getElementById('entregas-anio').value);
+
   loading(true, 'Cargando entregas...');
   const { data: entregas } = await sb.from('entregas').select('*,profiles(nombre,apellido),pedidos(total,pedido_items(*))');
   loading(false);
+
   const el = document.getElementById('a-entregas-list');
-  if (!entregas || entregas.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">🚚</div><p>No hay entregas registradas</p></div>'; return; }
+  let filtradas = entregas || [];
+
+  // Filtrar por mes/año usando el campo fecha
+  filtradas = filtradas.filter(e => {
+    if (!e.fecha) return false;
+    const d = new Date(e.fecha);
+    const matchAnio = d.getFullYear() === anio;
+    const matchMes = mes === 0 || (d.getMonth() + 1) === mes;
+    return matchAnio && matchMes;
+  });
+
+  window._entregasData = filtradas;
+
+  if (filtradas.length === 0) { el.innerHTML = '<div class="empty-state"><div class="icon">🚚</div><p>No hay entregas registradas en este período</p></div>'; return; }
+
   // Ordenar por apellido A-Z
-  entregas.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+  filtradas.sort((a, b) => (a.profiles?.apellido || '').localeCompare(b.profiles?.apellido || '', 'es'));
+
   el.innerHTML = `<div class="table-wrap">
     <table class="admin-table">
       <thead><tr><th>Apellido</th><th>Nombre</th><th>Fecha</th><th>Semana</th><th>Productos</th><th>Obs.</th></tr></thead>
-      <tbody>${entregas.map(e => {
+      <tbody>${filtradas.map(e => {
         const u = e.profiles;
         const p = e.pedidos;
-        const prods = p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre} x${i.cantidad}`).join(', ') : '—';
+        const prods = p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre}${i.variante ? ' — ' + i.variante : ''} x${i.cantidad}`).join(', ') : '—';
         return `<tr>
           <td style="font-weight:600;">${u?.apellido || '—'}</td>
           <td>${u?.nombre || '—'}</td>
@@ -2325,6 +2388,22 @@ async function renderAdminEntregas() {
       }).join('')}</tbody>
     </table>
   </div>`;
+}
+
+async function exportarEntregasExcel() {
+  const data = window._entregasData || [];
+  if (data.length === 0) { notif('No hay datos para exportar'); return; }
+  const rows = [['Apellido', 'Nombre', 'Fecha', 'Semana', 'Productos', 'Observaciones']];
+  data.forEach(e => {
+    const u = e.profiles;
+    const p = e.pedidos;
+    const prods = p && p.pedido_items ? p.pedido_items.map(i => `${i.nombre}${i.variante ? ' - ' + i.variante : ''} x${i.cantidad}`).join('; ') : '';
+    rows.push([u?.apellido || '', u?.nombre || '', e.fecha || '', e.semana || '', prods, e.observaciones || '']);
+  });
+  const mes = document.getElementById('entregas-mes').value;
+  const anio = document.getElementById('entregas-anio').value;
+  descargarExcel(rows, `entregas_${anio}_${mes}.csv`);
+  notif('✓ Archivo descargado');
 }
 
 // ── MODALES ───────────────────────────────────────
@@ -2392,6 +2471,34 @@ async function toggleAutorizacion(uid, actual) {
   await sb.from('profiles').update({ autorizado_con_deuda: !actual }).eq('id', uid);
   loading(false);
   notif(actual ? 'Autorización revocada' : '✓ Cliente autorizado para pedir con deuda');
+  renderAdminClientes();
+}
+
+let clienteAEliminar = null;
+function confirmarEliminarCliente(uid, nombre) {
+  clienteAEliminar = uid;
+  document.getElementById('confirm-eliminar-texto').textContent = `¿Seguro que deseas eliminar a ${nombre}? Se borrarán también sus pedidos, pagos y entregas. Esta acción no se puede deshacer.`;
+  document.getElementById('modal-confirm-eliminar').classList.add('active');
+}
+
+async function ejecutarEliminarCliente() {
+  if (!clienteAEliminar) return;
+  loading(true, 'Eliminando cliente...');
+  const uid = clienteAEliminar;
+  // Eliminar en orden por las relaciones (pedido_items depende de pedidos)
+  const { data: pedidosCliente } = await sb.from('pedidos').select('id').eq('cliente_id', uid);
+  const pedidoIds = (pedidosCliente || []).map(p => p.id);
+  if (pedidoIds.length > 0) {
+    await sb.from('pedido_items').delete().in('pedido_id', pedidoIds);
+  }
+  await sb.from('entregas').delete().eq('cliente_id', uid);
+  await sb.from('pedidos').delete().eq('cliente_id', uid);
+  await sb.from('pagos').delete().eq('cliente_id', uid);
+  await sb.from('profiles').delete().eq('id', uid);
+  loading(false);
+  clienteAEliminar = null;
+  closeModal('modal-confirm-eliminar');
+  notif('✓ Cliente eliminado correctamente');
   renderAdminClientes();
 }
 
